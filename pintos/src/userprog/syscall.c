@@ -10,8 +10,8 @@ static void syscall_handler (struct intr_frame *);
 //for #proj2_1 make functions//
 void syscall_halt(void);
 void syscall_exit (int status); 
-pid_t syscall_exec (const char *cmd_line); 
-int syscall_wait (pid_t pid); 
+void syscall_exec (const char *cmd_line); 
+int syscall_wait (int pid); 
 int syscall_read (int fd, void *buffer, unsigned size);
 int syscall_write (int fd, const void *buffer, unsigned size);
 
@@ -26,32 +26,34 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
 {
     int syscallnum;
   printf ("system call!\n");
-  
-  syscallnum = f->esp;
+  //syscallnum = (f->esp);
 
-  
+  //printf("%d",syscallnum);
+
+	//TODO : Check the Stack Pointer is in the User Area
+	//first 4 bytes of f->esp is syscall number.
+	//We know how many argus by argc, so we can get argu's addr.
+	//And then, We must check the argu's addr is valid.
+  /*
   if (syscallnum == SYS_HALT){
     syscall_halt();
   }
   else if (syscallnum == SYS_EXIT){
-
+	//syscall_exit();
   }
   else if (syscallnum == SYS_EXEC){
-
+	//syscall_exec();
   }
   else if (syscallnum == SYS_WAIT){
-
+	//syscall_wait();
   }
   else if (syscallnum== SYS_READ){
-
-  }else if (syscallnum== SYS_WRITE){
-
+	//syscall_read();
   }
-
-
-
-
- 
+  else if (syscallnum== SYS_WRITE){
+	//syscall_write();
+  }
+*/
   thread_exit ();
 }
 
@@ -59,22 +61,23 @@ void
 syscall_halt (void) 
 {
   shutdown_power_off();
+  NOT_REACHED();
 }
 
 void
 syscall_exit (int status) 
 {
 
-    return status;
+    return status; 
 }
 
-pid_t
+void
 syscall_exec (const char *cmd_line) 
 {
 }
 
 int
-syscall_wait (pid_t pid) 
+syscall_wait (int pid) 
 {
 }
 

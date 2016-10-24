@@ -107,7 +107,7 @@ construct_ESP(void **esp, char *argu_list[MAX_ARGS],int argu_num)
             memset(*esp, 0, sizeof(uint8_t));       
          }
     }
-    
+    printf("<1>");
     /*3. argv[4] 값 memcpy : 분리하는역할 */
     *esp-=4;
     memset(*esp, 0, sizeof(char *));
@@ -117,15 +117,18 @@ construct_ESP(void **esp, char *argu_list[MAX_ARGS],int argu_num)
         *esp-= 4;
         memcpy(*esp,&addr[i],sizeof(char*));
     }
-
+	printf("<2>");
     //TODO : argv 값 memset
+	*esp-=4;
 	memcpy(*esp,*esp+4,sizeof(char**));//argv addr
 	*esp-=4;
+	printf("<%d>",argu_num);
 	memcpy(*esp,&argu_num,sizeof(int));//argc
 	*esp-=4;
-	memcpy(*esp,0,sizeof(void(*)()));
+	memset(*esp,0,sizeof(void*));
 	*esp-=4;
-
+	printf("<3>\n");
+	
     //To debug
     hex_dump((int)*esp,*esp,0xc0000000-(int)*esp,true);
 }
@@ -340,7 +343,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
 /*na-2016.10.22*/
   argu_num = parse_filename(file_name, argu_list);
-
   /* Open executable file. */
   file = filesys_open (file_name);
   if (file == NULL) 
@@ -429,19 +431,19 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
 /*10.22 : add construct_ESP*/
     construct_ESP(esp, argu_list,argu_num);
-
+	printf("<5>");
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
 
   success = true;
-
+	printf("<6>");
  done:
 
 	//psu 2016.10.23 : free the argu_list
 	for(i=0;i<argu_num;i++){
 		free(argu_list[i]);
 	}
-
+	printf("<7>");
   /* We arrive here whether the load is successful or not. */
   file_close (file);
   return success;
@@ -489,7 +491,7 @@ validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
      it then user code that passed a null pointer to system calls
      could quite likely panic the kernel by way of null pointer
      assertions in memcpy(), etc. */
-  if (phdr->p_offset < PGSIZE)//psu 2016.10.23 modify vaddr->offset
+  if (phdr->p_vaddr < PGSIZE)//psu 2016.10.23 modify vaddr->offset
     return false;
 
   /* It's okay. */
