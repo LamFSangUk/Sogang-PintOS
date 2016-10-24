@@ -57,17 +57,17 @@ parse_filename(const char *file_name, char *argu_list[MAX_ARGS])
         {
             strlcpy(file_name, token, len_token);
         }
-        else
-        {
-        	argu_list[cnt-1]=(char*)malloc(sizeof(char)*len_token);
-            strlcpy(argu_list[cnt-1],token, len_token);
-        }
+        
+        
+        argu_list[cnt]=(char*)malloc(sizeof(char)*len_token);
+        strlcpy(argu_list[cnt],token, len_token);
+        
         cnt++;
     }
 
 	free(s);
 
-    return cnt-1;
+    return cnt;
     //make the argulist.
     //return the number of argus.
 }
@@ -83,7 +83,8 @@ construct_ESP(void **esp, char *argu_list[MAX_ARGS],int argu_num)
 {
     size_t size_argu; 
     int i, totallen_align = 0;              //totallen_align is total sum of argument lengths when we calculate all length of the arguments FOR word alignment!!
-    int addr[128]; 
+    int addr[128];
+    int false_addr=0;
 
     memset(addr,0,argu_num*sizeof(int));
     /*1. argv[3]~argv[0] memset*/
@@ -96,41 +97,34 @@ construct_ESP(void **esp, char *argu_list[MAX_ARGS],int argu_num)
         addr[i] = (int)*esp;
         memcpy(*esp,argu_list[i],size_argu);
     }
-
-    hex_dump((int)*esp,*esp,16,true);
-	printf("\n\n");
-    
-    /*2. padding하는 값 memset*/
-    if(totallen_align%4!=0){                   //4-(totallen_align)%4 = align해야하는 cnt, total이 13이면 word align 하기위해 15까지 padding해줘야함 
+ 
+    /*2. padding */
+    if(totallen_align%4!=0){ 
          for(i=0; i< 4-(totallen_align%4);i++){
              *esp-= 1;
             memset(*esp, 0, sizeof(uint8_t));       
          }
     }
-    printf("<1>");
-    /*3. argv[4] 값 memcpy : 분리하는역할 */
+    /*3. argv[4] memcpy  */
     *esp-=4;
     memset(*esp, 0, sizeof(char *));
 
-    /*4. argv[3]~argv[0]의 주소값 차례대로 memcpy */
+    /*4. argv[3]~argv[0] memcpy */
     for(i=argu_num-1;i>=0;i--){ 
         *esp-= 4;
         memcpy(*esp,&addr[i],sizeof(char*));
     }
-	printf("<2>");
-    //TODO : argv 값 memset
+    //TODO : argv memset
 	*esp-=4;
-	memcpy(*esp,*esp+4,sizeof(char**));//argv addr
+	*(char**)*esp=*esp+4;
 	*esp-=4;
-	printf("<%d>",argu_num);
-	memcpy(*esp,&argu_num,sizeof(int));//argc
+	*(int*)*esp=argu_num;
 	*esp-=4;
-	memset(*esp,0,sizeof(void*));
-	*esp-=4;
-	printf("<3>\n");
-	
+	*(int*)*esp=0;
+
+
     //To debug
-    hex_dump((int)*esp,*esp,0xc0000000-(int)*esp,true);
+    hex_dump((uintptr_t)*esp,(const char*)*esp,PHYS_BASE-(uintptr_t)*esp,true);
 }
 /******************************************/
 /* Starts a new thread running a user program loaded from
@@ -152,6 +146,7 @@ process_execute (const char *file_name)
 	
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
 
@@ -173,7 +168,7 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
-
+  
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success) 
@@ -428,22 +423,20 @@ load (const char *file_name, void (**eip) (void), void **esp)
   /* Set up stack. */
   if (!setup_stack (esp))
     goto done;
-
-/*10.22 : add construct_ESP*/
-    construct_ESP(esp, argu_list,argu_num);
-	printf("<5>");
+  
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
 
+/*10.22 : add construct_ESP*/
+	construct_ESP(esp, argu_list, argu_num);
+
   success = true;
-	printf("<6>");
  done:
 
 	//psu 2016.10.23 : free the argu_list
 	for(i=0;i<argu_num;i++){
 		free(argu_list[i]);
 	}
-	printf("<7>");
   /* We arrive here whether the load is successful or not. */
   file_close (file);
   return success;
