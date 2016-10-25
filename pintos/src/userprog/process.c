@@ -196,7 +196,9 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-    while(1){};
+    //while(1){};
+    int i;
+    for(i=0;i<500000000;i++);
 
 //  return -1;
 }
@@ -338,11 +340,12 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
 /*na-2016.10.22*/
   argu_num = parse_filename(file_name, argu_list);
+  strlcpy(t->name,file_name,strlen(file_name)+1);
   /* Open executable file. */
-  file = filesys_open (file_name);
+  file = filesys_open (t->name);
   if (file == NULL) 
     {
-      printf ("load: %s: open failed\n", file_name);
+      printf ("load: %s: open failed\n", t->name);
       goto done; 
     }
 
@@ -355,7 +358,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
       || ehdr.e_phentsize != sizeof (struct Elf32_Phdr)
       || ehdr.e_phnum > 1024) 
     {
-      printf ("load: %s: error loading executable\n", file_name);
+      printf ("load: %s: error loading executable\n", t->name);
       goto done; 
     }
 
@@ -484,7 +487,7 @@ validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
      it then user code that passed a null pointer to system calls
      could quite likely panic the kernel by way of null pointer
      assertions in memcpy(), etc. */
-  if (phdr->p_vaddr < PGSIZE)//psu 2016.10.23 modify vaddr->offset
+  if (phdr->p_offset < PGSIZE)//psu 2016.10.23 modify vaddr->offset
     return false;
 
   /* It's okay. */

@@ -16,11 +16,12 @@ static void syscall_handler (struct intr_frame *);
 /*PROJECT2_1*/
 void syscall_halt(void);
 int syscall_exit (int status);
-tid_t syscall_exec (const char *cmd_line); /*
-int syscall_wait (int pid); */
+tid_t syscall_exec (const char *cmd_line); 
+int syscall_wait (int pid);
 void syscall_read (int fd, void *buffer, unsigned size);
 void syscall_write (int fd, const void *buffer, unsigned size);
 
+bool is_valid_userptr(const void* ptr);
 
 void
 syscall_init (void) 
@@ -32,10 +33,10 @@ static void
 syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interrupt.h
 {
 	int syscallnum;
-	char* argu_list[4];
+	int* argu;
   
   syscallnum = *(int*)(f->esp);
-
+  argu=(int*)(f->esp);
 
 	//TODO : Check the Stack Pointer is in the User Area
 	//first 4 bytes of f->esp is syscall number.
@@ -46,29 +47,22 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
     syscall_halt();
   }
   else if (syscallnum == SYS_EXIT){
-  	  argu_list[0]=(char*)(f->esp+4);
-  	  f->eax=syscall_exit(*(int*)argu_list[0]);
+  	  	f->eax=syscall_exit(argu[1]);
   }
   else if (syscallnum == SYS_EXEC){
-	//syscall_exec();
+		f->eax=syscall_exec((const char*)argu[1]);
   }
   else if (syscallnum == SYS_WAIT){
-	//syscall_wait();
+		f->eax=syscall_wait((int)argu[1]);
   }
   else if (syscallnum== SYS_READ){
-		argu_list[0]=(char*)(f->esp+4);
-		argu_list[1]=(char*)(f->esp+8);
-		argu_list[2]=(char*)(f->esp+12);
-	syscall_read(*(int*)argu_list[0],(const void*)argu_list[1],*(unsigned *)argu_list[2]);
+	syscall_read((int)argu[5],(const void*)argu[6],(unsigned)argu[7]);
   }
   else if (syscallnum== SYS_WRITE){
-  	  argu_list[0]=(char*)(f->esp+4);
-  	  argu_list[1]=(char*)(f->esp+8);
-  	  argu_list[2]=(char*)(f->esp+12);
-	syscall_write(*(int*)argu_list[0],(const void*)argu_list[1],*(unsigned *)argu_list[2]);
+	syscall_write((int)argu[5],(const void*)argu[6],(unsigned)argu[7]);
   }
 
-  thread_exit ();
+//  thread_exit ();
 }
 
 void
@@ -86,7 +80,6 @@ syscall_exit (int status)
 	struct thread *cur_thread;
 
 	cur_thread=thread_current();
-	f->eax=status;
 	printf("%s: exit(%d)\n",cur_thread->name,status);
 	thread_exit();
 }
@@ -105,14 +98,17 @@ syscall_wait (int pid)
 {
     //현재 thread에 저장된 child의 pid와 일치하는 thread를 찾아
     //process.c의 process_wait함수를 실행하면 끝 
-    process_wait(pid);
+    return process_wait(pid);
 }
 
 void
 syscall_read (int fd, void *buffer, unsigned size)
 {//we just make this part which enable stdin stdout to execute
+    int i;
+
     if(fd == STDIN){
-        input_getc();//src/devices/input.c return key value(notzero)
+    	for(i=0;i<size;i++)
+        	((uint8_t*)buffer)[i]=input_getc();//src/devices/input.c return key value(notzero)
     }
 }
 
@@ -144,3 +140,11 @@ syscall_write (int fd, const void *buffer, unsigned size)
  *
  *
  *********************************/
+
+ bool is_valid_userptr(const void* ptr){
+ 	 if(ptr==NULL){
+ 	 	 return false;
+	 }
+	 else
+	 	 return is_user_vaddr(ptr);
+ }
