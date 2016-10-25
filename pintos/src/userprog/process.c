@@ -84,7 +84,6 @@ construct_ESP(void **esp, char *argu_list[MAX_ARGS],int argu_num)
     size_t size_argu; 
     int i, totallen_align = 0;              //totallen_align is total sum of argument lengths when we calculate all length of the arguments FOR word alignment!!
     int addr[128];
-    int false_addr=0;
 
     memset(addr,0,argu_num*sizeof(int));
     /*1. argv[3]~argv[0] memset*/
@@ -149,7 +148,7 @@ process_execute (const char *file_name)
 
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
-
+	
   return tid;
 }
 
@@ -210,6 +209,7 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
+  printf("%s",cur->parent_thread->name);
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;

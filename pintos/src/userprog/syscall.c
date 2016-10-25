@@ -10,6 +10,8 @@
 #include "kernel/console.h"
 #include "devices/input.h"
 #include "devices/shutdown.h"
+#include "threads/vaddr.h"
+
 static void syscall_handler (struct intr_frame *);
 /*na-10.23 make syscall_handler, syscall_halt(), syscall_read(),syscall_write()*/
 
@@ -34,9 +36,15 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
 {
 	int syscallnum;
 	int* argu;
-  
+ 
+	if(!is_valid_userptr((const void*)(f->esp))){
+		syscall_exit(-1);
+		return;
+	}
+
   syscallnum = *(int*)(f->esp);
   argu=(int*)(f->esp);
+
 
 	//TODO : Check the Stack Pointer is in the User Area
 	//first 4 bytes of f->esp is syscall number.
@@ -47,18 +55,42 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
     syscall_halt();
   }
   else if (syscallnum == SYS_EXIT){
+  	  if(!is_valid_userptr((const void*)&argu[1])){
+  	  	  syscall_exit(-1);
+  	  	  return;
+	  }
   	  	f->eax=syscall_exit(argu[1]);
   }
   else if (syscallnum == SYS_EXEC){
+  	  if(!is_valid_userptr((const void*)&argu[1])){
+  	  	  syscall_exit(-1);
+  	  	  return;
+	  }
 		f->eax=syscall_exec((const char*)argu[1]);
   }
   else if (syscallnum == SYS_WAIT){
+  	  if(!is_valid_userptr((const void*)&argu[1])){
+  	  	  syscall_exit(-1);
+  	  	  return;
+	  }
 		f->eax=syscall_wait((int)argu[1]);
   }
   else if (syscallnum== SYS_READ){
-	syscall_read((int)argu[5],(const void*)argu[6],(unsigned)argu[7]);
+		if(!(is_valid_userptr((const void*)&argu[5])
+		   && is_valid_userptr((const void*)&argu[6]) 
+		   && is_valid_userptr((const void*)&argu[7]))){
+			syscall_exit(-1);
+			return;
+		}
+	syscall_read((int)argu[5],(void*)argu[6],(unsigned)argu[7]);
   }
   else if (syscallnum== SYS_WRITE){
+		if(!(is_valid_userptr((const void*)&argu[5])
+		   && is_valid_userptr((const void*)&argu[6])
+		   && is_valid_userptr((const void*)&argu[7]))){
+			syscall_exit(-1);
+			return;
+		}
 	syscall_write((int)argu[5],(const void*)argu[6],(unsigned)argu[7]);
   }
 
@@ -89,6 +121,8 @@ syscall_exec (const char *cmd_line)
 {
     // TODO : call process_execute and make process and save tid(check if error or not)
     // if the exit_status of  newly created thread not -1, return pid of this thread
+    if(cmd_line==NULL) return TID_ERROR;
+    
     tid_t tid;
     tid=process_execute(cmd_line);
 	return tid;

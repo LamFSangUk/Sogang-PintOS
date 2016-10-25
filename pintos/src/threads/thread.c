@@ -206,6 +206,9 @@ thread_create (const char *name, int priority,
 
   intr_set_level (old_level);
 
+	//Added -psu 2016.10.26
+	t->parent_thread=thread_current();
+
   /* Add to run queue. */
   thread_unblock (t);
 
@@ -470,6 +473,11 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
   list_push_back (&all_list, &t->allelem);
+
+#ifdef USERPROG
+	t->parent_thread=NULL;
+	list_init(&(t->child_tlist));
+#endif
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and

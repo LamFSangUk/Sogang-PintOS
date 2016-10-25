@@ -96,10 +96,16 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+
+	//Added -psu 2016.10.26
+    struct thread *parent_thread;		/* parent threads. */
+    struct list child_tlist; 			/* list for child threads. */
+
 #endif
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+
   };
 
 /* If false (default), use round-robin scheduler.
