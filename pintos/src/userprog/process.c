@@ -124,7 +124,7 @@ construct_ESP(void **esp, char *argu_list[MAX_ARGS],int argu_num)
 
 
     //To debug
-    hex_dump((uintptr_t)*esp,(const char*)*esp,PHYS_BASE-(uintptr_t)*esp,true);
+    //hex_dump((uintptr_t)*esp,(const char*)*esp,PHYS_BASE-(uintptr_t)*esp,true);
 }
 /******************************************/
 /* Starts a new thread running a user program loaded from
