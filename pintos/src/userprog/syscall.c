@@ -134,12 +134,18 @@ syscall_exit (int status)
     // save the status of the current thread and call 'thread_execute()'
 	
 	struct thread *cur_thread;
+	int *pchild_status=NULL;
 
 	cur_thread=thread_current();
-	
-	if(is_thread(cur_thread->parent_thread) && is_thread_alive(cur_thread->parent_thread->tid)){
-		cur_thread->pchild_data->child_status=status;
+
+	if(cur_thread->pchild_data!=NULL){
+		cur_thread->pchild_data->status = status;
+
+		pchild_status=&(cur_thread->pchild_data->child_status);
+		if(status<0) *pchild_status=KILLED;
+		else *pchild_status=EXIT;
 	}
+
 	printf("%s: exit(%d)\n",cur_thread->name,status);
 	thread_exit();
 	return status;
@@ -176,15 +182,15 @@ syscall_exec (const char *cmd_line)
 		
 	}
 	if(find_child_flag){
-		while(pchild_data->t_child->is_loaded==NOT_LOADED){
+		while(pchild_data->is_loaded==NOT_LOADED){
 			barrier();
 		}
-		if(pchild_data->t_child->is_loaded==LOAD_FAIL){
+		if(pchild_data->is_loaded==LOAD_FAIL){
 			return -1;
 		}
 		return tid;
 	}
-	else return -1;
+	else return tid;
 }
 int
 syscall_wait (int pid) 

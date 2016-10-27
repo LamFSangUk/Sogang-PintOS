@@ -28,6 +28,9 @@ typedef int tid_t;
 //2016.10.27
 #define NO 0
 #define YES 1
+#define ALIVE 0
+#define EXIT 1
+#define KILLED 2
 
 /* A kernel thread or user process.
 
@@ -106,7 +109,6 @@ struct thread
     struct thread *parent_thread;		/* parent threads. */
     struct list child_tlist; 			/* list for child threads. */
 	struct child_data *pchild_data;		/* list_elem for child list */
-	int is_loaded;
 #endif
 
     /* Owned by thread.c. */
@@ -117,9 +119,10 @@ struct thread
 /*ADDED*/
 struct child_data{
 	struct thread* t_child;
+	int status;
 	int child_status;
+	int is_loaded;
 	int is_waiting;
-	int is_exit;
 	struct list_elem child_elem;
 };
 

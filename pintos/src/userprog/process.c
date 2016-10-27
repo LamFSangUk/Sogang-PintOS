@@ -170,10 +170,10 @@ start_process (void *file_name_)
   success = load (file_name, &if_.eip, &if_.esp);
 
 	if(success){
-		thread_current()->is_loaded=LOAD_SUCCESS;
+		thread_current()->pchild_data->is_loaded=LOAD_SUCCESS;
 	}
 	else{
-		thread_current()->is_loaded=LOAD_FAIL;
+		thread_current()->pchild_data->is_loaded=LOAD_FAIL;
 	}
 
   /* If load failed, quit. */
@@ -212,32 +212,38 @@ process_wait (tid_t child_tid UNUSED)
 	struct list_elem *e;
 
 	bool find_child_flag=false;
-	int ret;
-
+	int ret=0;
+	
 	for(e=list_begin(&(cur_thread->child_tlist));e!=list_end(&(cur_thread->child_tlist));
 		e=list_next(e)){
 		pchild_data=list_entry(e,struct child_data,child_elem);
 		if(is_thread(pchild_data->t_child)
-			&& pchild_data->t_child->tid==child_tid){
+				&& pchild_data->t_child->tid==child_tid){
 			find_child_flag=true;
-			break;
+
+			if(pchild_data->is_waiting) return -1;
+			pchild_data->is_waiting=YES;
+			
+			while(pchild_data->child_status==ALIVE){
+				barrier();
+			}
+			
+			if(pchild_data->child_status==KILLED){
+				return -1;
+			}
+
+			ret=pchild_data->status;
+			list_remove(e);
+			free(pchild_data);
+
+			return ret;
 		}
 	}
 
 	if(!find_child_flag){
 		return -1;
 	}
-	if(pchild_data->is_waiting) return -1;
-	pchild_data->is_waiting=YES;
-
-	while(!pchild_data->is_exit){
-		barrier();
-	}
-	ret=pchild_data->child_status;
-	list_remove(e);
-	free(pchild_data);
-	return ret;
-
+	return -1;	
 }
 
 /* Free the current process's resources. */
@@ -249,7 +255,7 @@ process_exit (void)
 
 	if(is_thread(cur->parent_thread)
 		&& is_thread_alive(cur->parent_thread->tid)){
-		cur->pchild_data->is_exit=YES;
+		cur->pchild_data->child_status = EXIT;
 	}
 
   /* Destroy the current process's page directory and switch back

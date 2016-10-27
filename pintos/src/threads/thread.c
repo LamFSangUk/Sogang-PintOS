@@ -216,11 +216,12 @@ thread_create (const char *name, int priority,
 	//Added -psu 2016.10.26
 #ifdef USERPROG
 	t->parent_thread=thread_current();//Set the parent for child.
-	t->is_loaded=NOT_LOADED;
 	child=(struct child_data*)malloc(sizeof(struct child_data));
 	child->t_child=t;
+	child->status=0;
+	child->child_status=ALIVE;
+	child->is_loaded=NOT_LOADED;
 	child->is_waiting=NO;
-	child->is_exit=NO;
 	list_push_back(&(thread_current()->child_tlist),&(child->child_elem));
 	t->pchild_data=child;
 #endif
@@ -494,7 +495,6 @@ init_thread (struct thread *t, const char *name, int priority)
 #ifdef USERPROG
 	t->parent_thread=NULL;
 	t->pchild_data=NULL;
-	t->is_loaded=NOT_LOADED;
 	list_init(&(t->child_tlist));
 #endif
 
