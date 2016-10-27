@@ -1,6 +1,6 @@
 #ifndef __LIB_SYSCALL_NR_H
 #define __LIB_SYSCALL_NR_H
-
+/*na-10.27 - Add sys_fibo, sys_sum4*/
 /* System call numbers. */
 enum 
   {
@@ -18,7 +18,9 @@ enum
     SYS_SEEK,                   /* Change position in a file. */
     SYS_TELL,                   /* Report current position in a file. */
     SYS_CLOSE,                  /* Close a file. */
-
+    /*Project 2_1*/
+    SYS_FIBO,
+    SYS_SUM4,
     /* Project 3 and optionally project 4. */
     SYS_MMAP,                   /* Map a file into memory. */
     SYS_MUNMAP,                 /* Remove a memory mapping. */
