@@ -13,7 +13,11 @@
 #include "threads/vaddr.h"
 #ifdef USERPROG
 #include "userprog/process.h"
+#include "userprog/syscall.h"
+#include "threads/malloc.h"
 #endif
+
+#define NO_PARENT -1
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
@@ -65,7 +69,7 @@ static void idle (void *aux UNUSED);
 static struct thread *running_thread (void);
 static struct thread *next_thread_to_run (void);
 static void init_thread (struct thread *, const char *name, int priority);
-static bool is_thread (struct thread *) UNUSED;
+//static bool is_thread (struct thread *) UNUSED;
 static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
@@ -173,6 +177,8 @@ thread_create (const char *name, int priority,
   tid_t tid;
   enum intr_level old_level;
 
+	struct child_data *child=NULL;
+
   ASSERT (function != NULL);
 
   /* Allocate thread. */
@@ -207,7 +213,18 @@ thread_create (const char *name, int priority,
   intr_set_level (old_level);
 
 	//Added -psu 2016.10.26
-	t->parent_thread=thread_current();
+	t->parent_thread=thread_current();//Set the parent for child.
+	child=(struct child_data*)malloc(sizeof(struct child_data));
+	child->t_child=t;
+	child->is_waiting=NO;
+	child->is_loaded=NOT_LOADED;
+	child->is_exit=NO;
+	list_push_back(&(thread_current()->child_tlist),&(child->child_elem));
+	t->pchild_data=child;
+
+//	t->parent = thread_tid();
+//	struct child_process *cp = add_child_process(t->tid);
+//	t->cp = cp;
 
   /* Add to run queue. */
   thread_unblock (t);
@@ -273,6 +290,7 @@ thread_current (void)
      have overflowed its stack.  Each thread has less than 4 kB
      of stack, so a few big automatic arrays or moderate
      recursion can cause stack overflow. */
+  
   ASSERT (is_thread (t));
   ASSERT (t->status == THREAD_RUNNING);
 
@@ -451,7 +469,7 @@ running_thread (void)
 }
 
 /* Returns true if T appears to point to a valid thread. */
-static bool
+bool
 is_thread (struct thread *t)
 {
   return t != NULL && t->magic == THREAD_MAGIC;
@@ -476,8 +494,13 @@ init_thread (struct thread *t, const char *name, int priority)
 
 #ifdef USERPROG
 	t->parent_thread=NULL;
+	t->pchild_data=NULL;
 	list_init(&(t->child_tlist));
+//list_init(&t->child_list);
+//  t->cp = NULL;
+//    t->parent = NO_PARENT;
 #endif
+
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -593,3 +616,30 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+bool is_thread_alive(int tid){
+	struct list_elem *e;
+
+	for(e=list_begin(&all_list);e!=list_end(&all_list);
+		e=list_next(e)){
+		struct thread *t=list_entry(e,struct thread, allelem);
+		if(t->tid==tid) return true;
+	}
+	return false;
+}
+
+/*bool thread_alive (int pid)
+{
+	struct list_elem *e;
+
+	for (e = list_begin (&all_list); e != list_end (&all_list);
+			e = list_next (e))
+	{
+		struct thread *t = list_entry (e, struct thread, allelem);
+		if (t->tid == pid)
+		{
+			return true;
+		}
+	}
+	return false;
+}*/

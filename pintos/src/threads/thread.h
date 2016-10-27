@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "threads/synch.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -23,6 +24,10 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
+
+//2016.10.27
+#define NO 0
+#define YES 1
 
 /* A kernel thread or user process.
 
@@ -100,6 +105,14 @@ struct thread
 	//Added -psu 2016.10.26
     struct thread *parent_thread;		/* parent threads. */
     struct list child_tlist; 			/* list for child threads. */
+	struct child_data *pchild_data;		/* list_elem for child list */
+
+//    struct semaphore sema_lock;
+// Needed for wait / exec sys calls
+/*	struct list child_list;
+	tid_t parent;
+	// Points to child_process struct in parent's child list
+	struct child_process* cp;*/
 
 #endif
 
@@ -107,6 +120,15 @@ struct thread
     unsigned magic;                     /* Detects stack overflow. */
 
   };
+
+struct child_data{
+	struct thread* t_child;
+	int child_status;
+	int is_waiting;
+	int is_loaded;
+	int is_exit;
+	struct list_elem child_elem;
+};
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -143,5 +165,8 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+bool is_thread_alive(int tid);
+bool is_thread(struct thread *);
 
 #endif /* threads/thread.h */
