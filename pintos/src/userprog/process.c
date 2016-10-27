@@ -17,12 +17,13 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/synch.h"
 
 /*na-2016.10.22*/
 /*psu-2016.10.23*/
 
 #include "threads/malloc.h"
-
+#include "userprog/syscall.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -55,7 +56,7 @@ parse_filename(const char *file_name, char *argu_list[MAX_ARGS])
     	len_token=strlen(token)+1;
         if(cnt ==0)
         {
-            strlcpy(file_name, token, len_token);
+            strlcpy((char*)file_name, token, len_token);
         }
         
         
@@ -148,7 +149,23 @@ process_execute (const char *file_name)
 
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
-	
+ /*
+ else{
+  	  bool thread_found=false;
+  	  struct list_elem *e;
+  	  for(e=list_begin(&all_list);e!=list_end(&all_list);
+  	  		e=list_next(e)){
+  	  	  struct thread *t=list_entry(e,struct thread,allelem);
+  	  	  if(t->tid==tid) {
+  	  	  	  thread_found=true;
+  	  	  	  break;
+		  }
+	  }
+		if(
+		sema_down(&(thread_current()->sema_lock));
+
+  }
+*/	
   return tid;
 }
 
@@ -167,7 +184,24 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
-  
+/*
+  if (success)
+  {
+	  thread_current()->cp->load = LOAD_SUCCESS;
+  }
+  else
+  {
+	  thread_current()->cp->load = LOAD_FAIL;
+  }
+*/
+	//sema_up(&(thread_current()->sema_lock));
+if(success){
+		thread_current()->pchild_data->is_loaded=LOAD_SUCCESS;
+	}
+	else{
+		thread_current()->pchild_data->is_loaded=LOAD_FAIL;
+	}
+
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success) 
@@ -196,9 +230,89 @@ int
 process_wait (tid_t child_tid UNUSED) 
 {
     //while(1){};
-    int i;
-    for(i=0;i<500000000;i++);
+ //   int i;
+//    for(i=0;i<1000000000;i++);
+/*
+	struct child_process* cp = get_child_process(child_tid);
+	if (!cp)
+	{
+		return ERROR;
+	}
+	if (cp->wait)
+	{
+		return ERROR;
+	}
+	cp->wait = true;
+	while (!cp->exit)
+	{
+		barrier();
+	}
+	int status = cp->status;
+	remove_child_process(cp);
+	return status;
+*/
+	struct thread* cur_thread=thread_current();
+	struct child_data* pchild_data;
+	struct list_elem *e;
 
+	bool find_child_flag=false;
+	int ret;
+
+	for(e=list_begin(&(cur_thread->child_tlist));e!=list_end(&(cur_thread->child_tlist));
+		e=list_next(e)){
+		pchild_data=list_entry(e,struct child_data,child_elem);
+		if(is_thread(pchild_data->t_child)
+			&& pchild_data->t_child->tid==child_tid){
+			find_child_flag=true;
+			break;
+		}
+	}
+
+	if(!find_child_flag){
+		return -1;
+	}
+	if(pchild_data->is_waiting) return -1;
+	pchild_data->is_waiting=YES;
+
+	while(!pchild_data->is_exit){
+		barrier();
+	}
+	ret=pchild_data->child_status;
+	list_remove(e);
+	free(pchild_data);
+	return ret;
+
+
+//	if(child_tid==TID_ERROR) return -1;
+/*
+	while(1){
+
+		if(child_tid==TID_ERROR) return -1;
+
+		loop_flag=false;
+		for(e=list_begin(&(cur_thread->child_tlist));e!=list_end(&(cur_thread->child_tlist));
+			e=list_next(e)){
+			
+			//Iteration to find tid==child_tid
+
+			t=list_entry(e,struct thread,child_elem);//Get thread.
+	
+			if(t->tid==child_tid){
+				while(1){
+					barrier();
+					if(t->parent_thread->child_status==THREAD_DYING){
+						ret=t->parent_thread->exit_status;
+						t->parent_thread=NULL;
+						list_remove(e);
+						return ret;
+					}
+					loop_flag=true;
+				}
+			}
+		}
+		if(!loop_flag || list_size(&(cur_thread->child_tlist))==0) return -1;
+	}
+*/
 //  return -1;
 }
 
@@ -208,8 +322,20 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
+/*
+  remove_child_processes();
 
-  printf("%s",cur->parent_thread->name);
+  if (thread_alive(cur->parent))
+  {
+	  cur->cp->exit = true;
+  }
+  */
+
+	if(is_thread(cur->parent_thread)
+		&& is_thread_alive(cur->parent_thread->tid)){
+		cur->pchild_data->is_exit=YES;
+	}
+
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
