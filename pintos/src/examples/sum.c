@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "syscall.h"
-#incldue "../lib/user/syscall.h"
+#include "../lib/user/syscall.h"
 
 int
 main(int argc, char **argv)
