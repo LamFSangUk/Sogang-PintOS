@@ -176,8 +176,9 @@ thread_create (const char *name, int priority,
   struct switch_threads_frame *sf;
   tid_t tid;
   enum intr_level old_level;
-
+#ifdef USERPROG
 	struct child_data *child=NULL;
+#endif
 
   ASSERT (function != NULL);
 
@@ -213,14 +214,16 @@ thread_create (const char *name, int priority,
   intr_set_level (old_level);
 
 	//Added -psu 2016.10.26
+#ifdef USERPROG
 	t->parent_thread=thread_current();//Set the parent for child.
+	t->is_loaded=NOT_LOADED;
+	t->is_waiting_child=NO;
 	child=(struct child_data*)malloc(sizeof(struct child_data));
 	child->t_child=t;
-	child->is_waiting=NO;
-	child->is_loaded=NOT_LOADED;
 	child->is_exit=NO;
 	list_push_back(&(thread_current()->child_tlist),&(child->child_elem));
 	t->pchild_data=child;
+#endif
 
 //	t->parent = thread_tid();
 //	struct child_process *cp = add_child_process(t->tid);
@@ -495,10 +498,9 @@ init_thread (struct thread *t, const char *name, int priority)
 #ifdef USERPROG
 	t->parent_thread=NULL;
 	t->pchild_data=NULL;
+	t->is_loaded=NOT_LOADED;
+	t->is_waiting_child=NO;
 	list_init(&(t->child_tlist));
-//list_init(&t->child_list);
-//  t->cp = NULL;
-//    t->parent = NO_PARENT;
 #endif
 
 }
@@ -627,19 +629,3 @@ bool is_thread_alive(int tid){
 	}
 	return false;
 }
-
-/*bool thread_alive (int pid)
-{
-	struct list_elem *e;
-
-	for (e = list_begin (&all_list); e != list_end (&all_list);
-			e = list_next (e))
-	{
-		struct thread *t = list_entry (e, struct thread, allelem);
-		if (t->tid == pid)
-		{
-			return true;
-		}
-	}
-	return false;
-}*/

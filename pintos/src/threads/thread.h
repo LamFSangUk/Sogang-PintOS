@@ -106,6 +106,8 @@ struct thread
     struct thread *parent_thread;		/* parent threads. */
     struct list child_tlist; 			/* list for child threads. */
 	struct child_data *pchild_data;		/* list_elem for child list */
+	int is_loaded;
+	int is_waiting_child;
 
 //    struct semaphore sema_lock;
 // Needed for wait / exec sys calls
@@ -124,8 +126,6 @@ struct thread
 struct child_data{
 	struct thread* t_child;
 	int child_status;
-	int is_waiting;
-	int is_loaded;
 	int is_exit;
 	struct list_elem child_elem;
 };

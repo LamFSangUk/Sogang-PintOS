@@ -71,7 +71,7 @@
                  [arg0] "g" (ARG0),                             \
                  [arg1] "g" (ARG1),                             \
                  [arg2] "g" (ARG2),                             \
-                 [arg3] "g" (ARG3),                             \
+                 [arg3] "g" (ARG3)                              \
                : "memory");                                     \
           retval;                                               \
         })

@@ -5,7 +5,7 @@
 #include "../lib/user/syscall.h"
 
 int
-main(int argc, char **argv)
+main(int argc UNUSED, char **argv)
 {
     int a,b,c,d;
     int fib;
