@@ -16,8 +16,8 @@ main(int argc, char **argv)
     c = atoi(argv[3]);
     d = atoi(argv[4]);
 
-    sum = sum_of_four_integers( a, b, c, d);
-    fib = syscall_fibonacci(a);
+    sum = sum_of_4( a, b, c, d);
+    fib = fibonacci(a);
     printf("%d %d\n",fib, sum);
 
     return 0;
