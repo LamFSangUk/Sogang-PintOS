@@ -14,6 +14,7 @@
 #include "threads/vaddr.h"
 #include "userprog/process.h"
 #include "threads/malloc.h"
+#include "threads/synch.h"
 
 static void syscall_handler (struct intr_frame *);
 /*na-10.23 make syscall_handler, syscall_halt(), syscall_read(),syscall_write()*/
@@ -131,16 +132,7 @@ syscall_exit (int status)
 {
     // TODO : 현재 thread가 가지고 있는 file을 모두 close하여pagefault방지
     // save the status of the current thread and call 'thread_execute()'
-/*
-	struct thread *cur = thread_current();
-	if (thread_alive(cur->parent))
-	{
-		cur->cp->status = status;
-	}
-	printf ("%s: exit(%d)\n", cur->name, status);
-	thread_exit();
-
-*/
+	
 	struct thread *cur_thread;
 
 	cur_thread=thread_current();
@@ -151,21 +143,6 @@ syscall_exit (int status)
 	printf("%s: exit(%d)\n",cur_thread->name,status);
 	thread_exit();
 	return status;
-/*
-
-	e=list_begin(&(cur_thread->parent_thread->child_tlist));
-	while(1){
-		child_thread=list_entry(e,struct thread,child_elem);
-		if(cur_thread->tid == child_thread->tid){
-			printf("%s: exit(%d)\n",cur_thread->name,status);
-			cur_thread->parent_thread->child_status=THREAD_DYING;
-			cur_thread->parent_thread->status=status;
-			thread_exit();
-			break;
-		}
-		e=list_next(e);
-	}
-	*/
 }
 
 tid_t
@@ -173,19 +150,7 @@ syscall_exec (const char *cmd_line)
 {
     // TODO : call process_execute and make process and save tid(check if error or not)
 	// if the exit_status of  newly created thread not -1, return pid of this thread
-/*	tid_t pid = process_execute(cmd_line);
-	struct child_process* cp = get_child_process(pid);
-	ASSERT(cp);
-	while (cp->load == NOT_LOADED)
-	{
-		barrier();
-	}
-	if (cp->load == LOAD_FAIL)
-	{
-		return ERROR;
-	}
-	return pid;
-  */
+    
     if(cmd_line==NULL) return TID_ERROR;
    	else if(strcmp("no-such-file",cmd_line)==0) return -1;
 
@@ -220,9 +185,6 @@ syscall_exec (const char *cmd_line)
 		return tid;
 	}
 	else return -1;
-
-//    tid=process_execute(cmd_line);
-//	return tid;
 }
 int
 syscall_wait (int pid) 
@@ -254,7 +216,7 @@ syscall_write (int fd, const void *buffer, unsigned size)
 	}
 	return -1;
 }
-/********************************/
+
 int 
 syscall_fibonacci(int _n_input)
 {

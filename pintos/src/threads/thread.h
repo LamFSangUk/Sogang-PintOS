@@ -107,15 +107,6 @@ struct thread
     struct list child_tlist; 			/* list for child threads. */
 	struct child_data *pchild_data;		/* list_elem for child list */
 	int is_loaded;
-	int is_waiting_child;
-
-//    struct semaphore sema_lock;
-// Needed for wait / exec sys calls
-/*	struct list child_list;
-	tid_t parent;
-	// Points to child_process struct in parent's child list
-	struct child_process* cp;*/
-
 #endif
 
     /* Owned by thread.c. */
@@ -123,9 +114,11 @@ struct thread
 
   };
 
+/*ADDED*/
 struct child_data{
 	struct thread* t_child;
 	int child_status;
+	int is_waiting;
 	int is_exit;
 	struct list_elem child_elem;
 };

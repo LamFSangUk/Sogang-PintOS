@@ -217,17 +217,13 @@ thread_create (const char *name, int priority,
 #ifdef USERPROG
 	t->parent_thread=thread_current();//Set the parent for child.
 	t->is_loaded=NOT_LOADED;
-	t->is_waiting_child=NO;
 	child=(struct child_data*)malloc(sizeof(struct child_data));
 	child->t_child=t;
+	child->is_waiting=NO;
 	child->is_exit=NO;
 	list_push_back(&(thread_current()->child_tlist),&(child->child_elem));
 	t->pchild_data=child;
 #endif
-
-//	t->parent = thread_tid();
-//	struct child_process *cp = add_child_process(t->tid);
-//	t->cp = cp;
 
   /* Add to run queue. */
   thread_unblock (t);
@@ -499,7 +495,6 @@ init_thread (struct thread *t, const char *name, int priority)
 	t->parent_thread=NULL;
 	t->pchild_data=NULL;
 	t->is_loaded=NOT_LOADED;
-	t->is_waiting_child=NO;
 	list_init(&(t->child_tlist));
 #endif
 
