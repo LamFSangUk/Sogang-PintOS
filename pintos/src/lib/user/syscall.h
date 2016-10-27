@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 #include <debug.h>
-
+/*na-10.27-add fibo, sumof4*/
 /* Process identifier. */
 typedef int pid_t;
 #define PID_ERROR ((pid_t) -1)
@@ -33,6 +33,10 @@ int write (int fd, const void *buffer, unsigned length);
 void seek (int fd, unsigned position);
 unsigned tell (int fd);
 void close (int fd);
+
+/*Add Project 2_1*/
+int sum_of_4(int a, int b, int c, int d);
+int fibonacci(int n);
 
 /* Project 3 and optionally project 4. */
 mapid_t mmap (int fd, void *addr);
