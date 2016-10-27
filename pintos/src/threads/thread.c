@@ -213,7 +213,9 @@ thread_create (const char *name, int priority,
 
   intr_set_level (old_level);
 
-	//Added -psu 2016.10.26
+	/* ----------MODIFIED FUNCTION---------- -psu 2016.10.26
+		To make the relationship between parent and child. parent
+		thread creates child_data structure and initializes it.		*/
 #ifdef USERPROG
 	t->parent_thread=thread_current();//Set the parent for child.
 	child=(struct child_data*)malloc(sizeof(struct child_data));
@@ -492,6 +494,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->magic = THREAD_MAGIC;
   list_push_back (&all_list, &t->allelem);
 
+	/* ----------MODIFIED FUNCTION----------
+	initialize thread's parent info, and child's info.	*/
 #ifdef USERPROG
 	t->parent_thread=NULL;
 	t->pchild_data=NULL;
@@ -614,12 +618,18 @@ allocate_tid (void)
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
+/* 
+	----------ADDED FUNCTION----------
+	Check the thread is NOT COMPLETELY DEAD. We can check by
+	searching the 'all_list'. If the thread is alive return true,
+	else return false.																					*/
 bool is_thread_alive(int tid){
 	struct list_elem *e;
+	struct thread* t=NULL;
 
 	for(e=list_begin(&all_list);e!=list_end(&all_list);
 		e=list_next(e)){
-		struct thread *t=list_entry(e,struct thread, allelem);
+		t=list_entry(e,struct thread, allelem);
 		if(t->tid==tid) return true;
 	}
 	return false;

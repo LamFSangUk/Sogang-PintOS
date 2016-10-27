@@ -28,9 +28,14 @@ typedef int tid_t;
 //2016.10.27
 #define NO 0
 #define YES 1
+
 #define ALIVE 0
-#define EXIT 1
-#define KILLED 2
+#define KILLED 1
+#define COMPLETE_EXIT 2
+
+#define LOAD_SUCCESS 0
+#define NOT_LOADED 1
+#define LOAD_FAIL 2
 
 /* A kernel thread or user process.
 
@@ -106,9 +111,9 @@ struct thread
     uint32_t *pagedir;                  /* Page directory. */
 
 	//Added -psu 2016.10.26
-    struct thread *parent_thread;		/* parent threads. */
-    struct list child_tlist; 			/* list for child threads. */
-	struct child_data *pchild_data;		/* list_elem for child list */
+    struct thread *parent_thread;				/* parent threads. */
+    struct list child_tlist; 						/* list for child threads. */
+		struct child_data *pchild_data;			/* child's INFO. */
 #endif
 
     /* Owned by thread.c. */
@@ -116,7 +121,13 @@ struct thread
 
   };
 
-/*ADDED*/
+/*
+	----------ADDED STRUCTURE----------
+	The Sturcture has Child's INFO. It has a pointer to
+	child's thread, a status which set by syscall_exit(),
+	a child_status to synchronize, a load flag to check it
+	is loaded successfully, a wait flag to check parent waits
+	for it, and child_elem is to construct list.						*/
 struct child_data{
 	struct thread* t_child;
 	int status;

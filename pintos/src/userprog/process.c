@@ -207,6 +207,13 @@ process_wait (tid_t child_tid UNUSED)
 //	int i;
 //  for(i=0;i<1000000000;i++);
 
+	/*
+		----------MODIFIED FUNCTION----------
+		If user program executes child program, the parent must wait until
+		the child exits. So, we use barrier() (to busy-wait) when child 
+		thread is NOT executed completely. The parent thread will wait until
+		child is dead.																										*/
+	
 	struct thread* cur_thread=thread_current();
 	struct child_data* pchild_data;
 	struct list_elem *e;
@@ -253,9 +260,12 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
+/* If current thread has the parent thread, it must be child thread.
+	So, modify child_status's value to inform 'child thread is exited, 
+	parent will not wait more.' */
 	if(is_thread(cur->parent_thread)
 		&& is_thread_alive(cur->parent_thread->tid)){
-		cur->pchild_data->child_status = EXIT;
+		cur->pchild_data->child_status = COMPLETE_EXIT;
 	}
 
   /* Destroy the current process's page directory and switch back
