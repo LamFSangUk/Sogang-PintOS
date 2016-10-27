@@ -196,10 +196,10 @@ start_process (void *file_name_)
 */
 	//sema_up(&(thread_current()->sema_lock));
 if(success){
-		thread_current()->pchild_data->is_loaded=LOAD_SUCCESS;
+		thread_current()->is_loaded=LOAD_SUCCESS;
 	}
 	else{
-		thread_current()->pchild_data->is_loaded=LOAD_FAIL;
+		thread_current()->is_loaded=LOAD_FAIL;
 	}
 
   /* If load failed, quit. */
@@ -271,8 +271,8 @@ process_wait (tid_t child_tid UNUSED)
 	if(!find_child_flag){
 		return -1;
 	}
-	if(pchild_data->is_waiting) return -1;
-	pchild_data->is_waiting=YES;
+	if(pchild_data->t_child->is_waiting_child) return -1;
+	pchild_data->t_child->is_waiting_child=YES;
 
 	while(!pchild_data->is_exit){
 		barrier();

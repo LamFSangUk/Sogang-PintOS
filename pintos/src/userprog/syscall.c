@@ -25,6 +25,8 @@ tid_t syscall_exec (const char *cmd_line);
 int syscall_wait (int pid);
 int syscall_read (int fd, void *buffer, unsigned size);
 int syscall_write (int fd, const void *buffer, unsigned size);
+int syscall_fibonacci(int n);
+int syscall_sum_of_four_integers(int,int ,int,int);
 
 bool is_valid_userptr(const void* ptr);
 
@@ -79,22 +81,39 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
 		f->eax=syscall_wait((int)argu[1]);
   }
   else if (syscallnum== SYS_READ){
-		if(!(is_valid_userptr((const void*)&argu[5])
-		   && is_valid_userptr((const void*)&argu[6]) 
-		   && is_valid_userptr((const void*)&argu[7]))){
+		if(!is_valid_userptr((const void*)&argu[5])
+		   || !is_valid_userptr((const void*)&argu[6]) 
+		   || !is_valid_userptr((const void*)&argu[7])){
 			syscall_exit(-1);
 			return;
 		}
 	f->eax=syscall_read((int)argu[5],(void*)argu[6],(unsigned)argu[7]);
   }
   else if (syscallnum== SYS_WRITE){
-		if(!(is_valid_userptr((const void*)&argu[5])
-		   && is_valid_userptr((const void*)&argu[6])
-		   && is_valid_userptr((const void*)&argu[7]))){
+		if(!is_valid_userptr((const void*)&argu[5])
+		   || !is_valid_userptr((const void*)&argu[6])
+		   || !is_valid_userptr((const void*)&argu[7])){
 			syscall_exit(-1);
 			return;
 		}
 	f->eax=syscall_write((int)argu[5],(const void*)argu[6],(unsigned)argu[7]);
+  }
+  else if(syscallnum==SYS_FIBO){
+  	  if(!is_valid_userptr((const void*)&argu[1])){
+		syscall_exit(-1);
+		return;
+	  }
+  	  f->eax=syscall_fibonacci((int)argu[1]);
+  }
+  else if(syscallnum==SYS_SUM4){
+  	  if(!is_valid_userptr((const void*)&argu[6])
+  	  	  || !is_valid_userptr((const void*)&argu[7])
+  	  	  || !is_valid_userptr((const void*)&argu[8])
+  	  	  || !is_valid_userptr((const void*)&argu[9])){
+  	  	  syscall_exit(-1);
+  	  	  return;
+		}
+		f->eax=syscall_sum_of_four_integers((int)argu[6],(int)argu[7],(int)argu[8],(int)argu[9]);
   }
 
 //  thread_exit ();
@@ -131,7 +150,9 @@ syscall_exit (int status)
 	}
 	printf("%s: exit(%d)\n",cur_thread->name,status);
 	thread_exit();
+	return status;
 /*
+
 	e=list_begin(&(cur_thread->parent_thread->child_tlist));
 	while(1){
 		child_thread=list_entry(e,struct thread,child_elem);
@@ -190,10 +211,10 @@ syscall_exec (const char *cmd_line)
 		
 	}
 	if(find_child_flag){
-		while(pchild_data->is_loaded==NOT_LOADED){
+		while(pchild_data->t_child->is_loaded==NOT_LOADED){
 			barrier();
 		}
-		if(pchild_data->is_loaded==LOAD_FAIL){
+		if(pchild_data->t_child->is_loaded==LOAD_FAIL){
 			return -1;
 		}
 		return tid;
@@ -214,13 +235,14 @@ syscall_wait (int pid)
 int
 syscall_read (int fd, void *buffer, unsigned size)
 {//we just make this part which enable stdin stdout to execute
-    int i;
+    unsigned i;
 
     if(fd == STDIN){
     	for(i=0;i<size;i++)
         	((uint8_t*)buffer)[i]=input_getc();//src/devices/input.c return key value(notzero)
         return size;
     }
+    return -1;
 }
 
 int
@@ -230,86 +252,42 @@ syscall_write (int fd, const void *buffer, unsigned size)
         putbuf((const char *)buffer,size);
         return size;
 	}
+	return -1;
 }
-/********************************
- * this function must be prototyped.
- *
- int pibonacci(int n)
- {
-    if((n==0)
-        return 0;
-    else if(n==1)
-        return 1;
-    else
-        return pibonacci(n-1)+pibonacci(n-2));
+/********************************/
+int 
+syscall_fibonacci(int _n_input)
+{
+	int _n_0=0,_n_1=1,_n_2=0,i;
 
- }
- int sum_of_four_integers(int a, int b, int c, int d)
- {
-    return a+b+c+d;
- }
- *
- *
- *
- *
- *********************************/
+	if(_n_input<0){
+		return -1;
+	}
+	else if(_n_input==0){
+		return 0;
+	}
+	else if(_n_input==1){
+		return 1;
+	}
+	else{
+		for(i=1;i<_n_input;i++){
+			_n_2=_n_1+_n_0;
+			_n_0=_n_1;
+			_n_1=_n_2;
+		}
 
- bool is_valid_userptr(const void* ptr){
- 	 if(ptr==NULL){
+		return _n_2;
+	}
+}
+int syscall_sum_of_four_integers(int _para_1, int _para_2, int _para_3, int _para_4)
+{
+   return _para_1+_para_2+_para_3+_para_4;
+}
+
+bool is_valid_userptr(const void* ptr){
+	 if(ptr==NULL){
  	 	 return false;
 	 }
 	 else
 		 return is_user_vaddr(ptr);
- }
- /*
-struct child_process* add_child_process (int pid)
-{
-	struct child_process* cp = malloc(sizeof(struct child_process));
-	cp->pid = pid;
-	cp->load = NOT_LOADED;
-	cp->wait = false;
-	cp->exit = false;
-	lock_init(&cp->wait_lock);
-	list_push_back(&thread_current()->child_list,
-			&cp->elem);
-	return cp;
 }
-
-struct child_process* get_child_process (int pid)
-{
-	struct thread *t = thread_current();
-	struct list_elem *e;
-
-	for (e = list_begin (&t->child_list); e != list_end (&t->child_list);
-			e = list_next (e))
-	{
-		struct child_process *cp = list_entry (e, struct child_process, elem);
-		if (pid == cp->pid)
-		{
-			return cp;
-		}
-	}
-	return NULL;
-}
-
-void remove_child_process (struct child_process *cp)
-{
-	list_remove(&cp->elem);
-	free(cp);
-}
-
-void remove_child_processes (void)
-{
-	struct thread *t = thread_current();
-	struct list_elem *next, *e = list_begin(&t->child_list);
-
-	while (e != list_end (&t->child_list))
-	{
-		next = list_next(e);
-		struct child_process *cp = list_entry (e, struct child_process,
-				elem);
-		list_remove(&cp->elem);
-		free(cp);
-		e = next;
-	}
-}*/
