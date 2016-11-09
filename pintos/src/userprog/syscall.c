@@ -30,7 +30,15 @@ static int syscall_fibonacci(int n);
 static int syscall_sum_of_four_integers(int,int ,int,int);
 
 static bool is_valid_userptr(const void* ptr);
-
+/*na-11.09 make functions*/
+/*PROJECT2_2*/
+static bool syscall_create (const char * file, unsigned initial_size);
+static bool syscall_remove (const char *file);
+static int syscall_open (const char *file);
+static int syscall_filesize (int fd);
+static void syscall_seek (int fd, unsigned position);
+static unsigned syscall_tell (int fd);
+static void syscall_close(int fd);
 void
 syscall_init (void) 
 {
@@ -131,8 +139,68 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
   	  return;
 		}
 		
-		f->eax=syscall_sum_of_four_integers((int)argu[6],(int)argu[7],(int)argu[8],(int)argu[9]);
+	f->eax=syscall_sum_of_four_integers((int)argu[6],(int)argu[7],(int)argu[8],(int)argu[9]);
   }
+  else if(syscallnum==SYS_CREATE){//
+    if(!is_valid_userptr((const void*)&argu[1])
+            || !is_valid_userptr((const void*)&argu[2])){
+			syscall_exit(-1);
+			return;
+	}
+ 	
+  	f->eax=syscall_create((const char *)argu[1],(unsigned)argue[2]);
+  }
+  else if(syscallnum==SYS_REMOVE){
+	if(!is_valid_userptr((const void*)&argu[1])){
+			syscall_exit(-1);
+			return;
+	  }
+  	
+  	f->eax=syscall_remove((int)argu[1]);
+
+  }
+  else if(syscallnum==SYS_OPEN){
+  	if(!is_valid_userptr((const void*)&argu[1])){
+			syscall_exit(-1);
+			return;
+	  }
+  	
+  	f->eax=syscall_open((int)argu[1]);
+}
+  else if(syscallnum==SYS_ClOSE){
+  	if(!is_valid_userptr((const void*)&argu[1])){
+			syscall_exit(-1);
+			return;
+	  }
+  	
+  	syscall_close((int)argu[1]);
+}
+  else if(syscallnum==SYS_FILESIZE){
+  	if(!is_valid_userptr((const void*)&argu[1])){
+			syscall_exit(-1);
+			return;
+	  }
+  	
+  	f->eax=syscall_filesize((int)argu[1]);
+}
+  else if(syscallnum==SYS_SEEK){//
+     if(!is_valid_userptr((const void*)&argu[1])
+            || !is_valid_userptr((const void*)&argu[2])){
+			syscall_exit(-1);
+			return;
+	}
+
+    syscall_seek((int)argu[1],(unsigned)argue[2]);
+  }
+  else if(syscallnum==SYS_TELL){
+ 	if(!is_valid_userptr((const void*)&argu[1])){
+			syscall_exit(-1);
+			return;
+	  }
+  	
+  	f->eax=syscall_tell((int)argu[1]);
+ }
+
 }
 
 /*
@@ -301,7 +369,8 @@ syscall_fibonacci(int _n_input)
 	----------ADDED FUNCTION----------
 	syscall_sum_of_four_integers just calculate the sum of
 	given four numbers.																		*/
-static int syscall_sum_of_four_integers(int _para_1, int _para_2, int _para_3, int _para_4)
+static int 
+syscall_sum_of_four_integers(int _para_1, int _para_2, int _para_3, int _para_4)
 {
    return _para_1+_para_2+_para_3+_para_4;
 }
@@ -320,3 +389,26 @@ static bool is_valid_userptr(const void* ptr){
 	else
 		return is_user_vaddr(ptr);
 }
+bool 
+syscall_create (const char * file, unsigned initial_size){
+    return filesys_create( file, initial_size);
+}
+bool
+syscall_remove (const char * file){
+}
+int
+syscall_open(const char *file){
+}
+int
+syscall_filesize (int fd){
+}
+void
+syscall_seek (int fd, unsigned position){
+}
+unsigned
+syscall_tell(int fd){
+}
+void
+syscall_close(int fd){
+}
+
