@@ -169,16 +169,13 @@ start_process (void *file_name_)
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
 
-	if(success){
-		thread_current()->pchild_data->is_loaded=LOAD_SUCCESS;
-	}
-	else{
-		thread_current()->pchild_data->is_loaded=LOAD_FAIL;
-	}
+	thread_current()->is_loaded=success;
+
+	sema_up(&thread_current()->sema_load);
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
-  if (!success) 
+  if (!success)
     thread_exit ();
 
   /* Start the user process by simulating a return from an
@@ -203,54 +200,17 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-	/*For Debug. Make infinite loop*/
-//	int i;
-//  for(i=0;i<1000000000;i++);
+	struct thread *child_thread;
+	int exit_status;
 
-	/*
-		----------MODIFIED FUNCTION----------
-		If user program executes child program, the parent must wait until
-		the child exits. So, we use barrier() (to busy-wait) when child 
-		thread is NOT executed completely. The parent thread will wait until
-		child is dead.																										*/
-	
-	struct thread* cur_thread=thread_current();
-	struct child_data* pchild_data;
-	struct list_elem *e;
+	if(!(child_thread=get_child_thread(child_tid))) return -1;
 
-	bool find_child_flag=false;
-	int ret=0;
-	
-	for(e=list_begin(&(cur_thread->child_tlist));e!=list_end(&(cur_thread->child_tlist));
-		e=list_next(e)){
-		pchild_data=list_entry(e,struct child_data,child_elem);
-		if(is_thread(pchild_data->t_child)
-				&& pchild_data->t_child->tid==child_tid){
-			find_child_flag=true;
+	sema_down(&child_thread->sema_wait);
+	list_remove(&child_thread->child_elem);
+	exit_status=child_thread->exit_status;
+	sema_up(&child_thread->sema_destroy);
 
-			if(pchild_data->is_waiting) return -1;
-			pchild_data->is_waiting=YES;
-			
-			while(pchild_data->child_status==ALIVE){
-				barrier();
-			}
-			
-			if(pchild_data->child_status==KILLED){
-				return -1;
-			}
-
-			ret=pchild_data->status;
-			list_remove(e);
-			free(pchild_data);
-
-			return ret;
-		}
-	}
-
-	if(!find_child_flag){
-		return -1;
-	}
-	return -1;	
+	return exit_status;
 }
 
 /* Free the current process's resources. */
@@ -259,14 +219,6 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
-
-/* If current thread has the parent thread, it must be child thread.
-	So, modify child_status's value to inform 'child thread is exited, 
-	parent will not wait more.' */
-	if(is_thread(cur->parent_thread)
-		&& is_thread_alive(cur->parent_thread->tid)){
-		cur->pchild_data->child_status = COMPLETE_EXIT;
-	}
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */

@@ -32,13 +32,13 @@ static int syscall_sum_of_four_integers(int,int ,int,int);
 static bool is_valid_userptr(const void* ptr);
 /*na-11.09 make functions*/
 /*PROJECT2_2*/
-static bool syscall_create (const char * file, unsigned initial_size);
+/*static bool syscall_create (const char * file, unsigned initial_size);
 static bool syscall_remove (const char *file);
 static int syscall_open (const char *file);
 static int syscall_filesize (int fd);
 static void syscall_seek (int fd, unsigned position);
 static unsigned syscall_tell (int fd);
-static void syscall_close(int fd);
+static void syscall_close(int fd);*/
 void
 syscall_init (void) 
 {
@@ -103,24 +103,24 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
 		f->eax=syscall_wait((int)argu[1]);
   }
   else if (syscallnum== SYS_READ){
-		if(!is_valid_userptr((const void*)&argu[5])
-		   || !is_valid_userptr((const void*)&argu[6]) 
-		   || !is_valid_userptr((const void*)&argu[7])){
+		if(!is_valid_userptr((const void*)&argu[1])
+		   || !is_valid_userptr((const void*)&argu[2]) 
+		   || !is_valid_userptr((const void*)&argu[3])){
 			syscall_exit(-1);
 			return;
 		}
 		
-		f->eax=syscall_read((int)argu[5],(void*)argu[6],(unsigned)argu[7]);
+		f->eax=syscall_read((int)argu[1],(void*)argu[2],(unsigned)argu[3]);
   }
   else if (syscallnum== SYS_WRITE){
-		if(!is_valid_userptr((const void*)&argu[5])
-				|| !is_valid_userptr((const void*)&argu[6])
-				|| !is_valid_userptr((const void*)&argu[7])){
+		if(!is_valid_userptr((const void*)&argu[1])
+				|| !is_valid_userptr((const void*)&argu[2])
+				|| !is_valid_userptr((const void*)&argu[3])){
 			syscall_exit(-1);
 			return;
 		}
 		
-		f->eax=syscall_write((int)argu[5],(const void*)argu[6],(unsigned)argu[7]);
+		f->eax=syscall_write((int)argu[1],(const void*)argu[2],(unsigned)argu[3]);
   }
   else if(syscallnum==SYS_FIBO){
   	if(!is_valid_userptr((const void*)&argu[1])){
@@ -131,16 +131,17 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
   	f->eax=syscall_fibonacci((int)argu[1]);
   }
   else if(syscallnum==SYS_SUM4){
-  	if(!is_valid_userptr((const void*)&argu[6])
-  		  || !is_valid_userptr((const void*)&argu[7])
-  	  	|| !is_valid_userptr((const void*)&argu[8])
-  	  	|| !is_valid_userptr((const void*)&argu[9])){
+  	if(!is_valid_userptr((const void*)&argu[1])
+  		  || !is_valid_userptr((const void*)&argu[2])
+  	  	|| !is_valid_userptr((const void*)&argu[3])
+  	  	|| !is_valid_userptr((const void*)&argu[4])){
   	  syscall_exit(-1);
   	  return;
 		}
 		
-	f->eax=syscall_sum_of_four_integers((int)argu[6],(int)argu[7],(int)argu[8],(int)argu[9]);
+	f->eax=syscall_sum_of_four_integers((int)argu[1],(int)argu[2],(int)argu[3],(int)argu[4]);
   }
+  /*
   else if(syscallnum==SYS_CREATE){//
     if(!is_valid_userptr((const void*)&argu[1])
             || !is_valid_userptr((const void*)&argu[2])){
@@ -200,7 +201,7 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
   	
   	f->eax=syscall_tell((int)argu[1]);
  }
-
+*/
 }
 
 /*
@@ -221,21 +222,8 @@ syscall_halt (void)
 int
 syscall_exit (int status) 
 {
-	
-	struct thread *cur_thread;
-	int *pchild_status=NULL;
-
-	cur_thread=thread_current();
-
-	if(cur_thread->pchild_data!=NULL){
-		cur_thread->pchild_data->status = status;
-
-		pchild_status=&(cur_thread->pchild_data->child_status);
-		if(status<0) *pchild_status=KILLED;
-		else *pchild_status=COMPLETE_EXIT;
-	}
-
-	printf("%s: exit(%d)\n",cur_thread->name,status);
+	thread_current()->exit_status=status;
+	printf("%s: exit(%d)\n",thread_name(),status);
 	thread_exit();
 	return status;
 }
@@ -253,41 +241,22 @@ syscall_exec (const char *cmd_line)
 {
     // TODO : call process_execute and make process and save tid(check if error or not)
 	// if the exit_status of  newly created thread not -1, return pid of this thread
-    
-    if(cmd_line==NULL) return TID_ERROR;
-   	else if(strcmp("no-such-file",cmd_line)==0) return -1;
+	
+	tid_t tid;
+	struct thread *child_thread;
 
-    tid_t tid=0;
-    bool find_child_flag=false;
+	if((tid=process_execute(cmd_line))==TID_ERROR)
+		return TID_ERROR;
 
-	struct list_elem* e;
-	struct thread* cur_thread;
-	struct child_data *pchild_data=NULL;
+	child_thread=get_child_thread(tid);
+	ASSERT(child_thread);
 
-	cur_thread=thread_current();
-	tid=process_execute(cmd_line);
+	sema_down(&child_thread->sema_load);
 
-	for(e=list_begin(&cur_thread->child_tlist);e!=list_end(&cur_thread->child_tlist);
-		e=list_next(e)){
-		pchild_data=list_entry(e,struct child_data,child_elem);
-		
-		if(is_thread(pchild_data->t_child)
-			&& tid==pchild_data->t_child->tid){
-			find_child_flag=true;
-			break;
-		}
-		
-	}
-	if(find_child_flag){
-		while(pchild_data->is_loaded==NOT_LOADED){
-			barrier();
-		}
-		if(pchild_data->is_loaded==LOAD_FAIL){
-			return -1;
-		}
-		return tid;
-	}
-	else return tid;
+	if(!child_thread->is_loaded) return TID_ERROR;
+
+	return tid;
+
 }
 /*
 	----------ADDED FUNCTION----------
@@ -389,6 +358,8 @@ static bool is_valid_userptr(const void* ptr){
 	else
 		return is_user_vaddr(ptr);
 }
+
+/*
 bool 
 syscall_create (const char * file, unsigned initial_size){
     return filesys_create( file, initial_size);
@@ -411,4 +382,4 @@ syscall_tell(int fd){
 void
 syscall_close(int fd){
 }
-
+*/

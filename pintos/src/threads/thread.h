@@ -109,33 +109,23 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
-
-	//Added -psu 2016.10.26
-    struct thread *parent_thread;				/* parent threads. */
-    struct list child_tlist; 						/* list for child threads. */
-		struct child_data *pchild_data;			/* child's INFO. */
 #endif
+	//Added -psu 2016.10.26
+   // struct thread *parent_thread;				/* parent threads. */
+    struct list child_tlist; 						/* list for child threads. */
+		struct list_elem child_elem;		  	/* child's INFO. */
+
+		int is_loaded;
+		int exit_status;
+
+		struct semaphore sema_wait;
+		struct semaphore sema_load;
+		struct semaphore sema_destroy;
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
 
   };
-
-/*
-	----------ADDED STRUCTURE----------
-	The Sturcture has Child's INFO. It has a pointer to
-	child's thread, a status which set by syscall_exit(),
-	a child_status to synchronize, a load flag to check it
-	is loaded successfully, a wait flag to check parent waits
-	for it, and child_elem is to construct list.						*/
-struct child_data{
-	struct thread* t_child;
-	int status;
-	int child_status;
-	int is_loaded;
-	int is_waiting;
-	struct list_elem child_elem;
-};
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -175,5 +165,7 @@ int thread_get_load_avg (void);
 
 bool is_thread_alive(int tid);
 bool is_thread(struct thread *);
+
+struct thread* get_child_thread(tid_t);
 
 #endif /* threads/thread.h */

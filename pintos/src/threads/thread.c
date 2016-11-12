@@ -176,9 +176,6 @@ thread_create (const char *name, int priority,
   struct switch_threads_frame *sf;
   tid_t tid;
   enum intr_level old_level;
-#ifdef USERPROG
-	struct child_data *child=NULL;
-#endif
 
   ASSERT (function != NULL);
 
@@ -216,17 +213,8 @@ thread_create (const char *name, int priority,
 	/* ----------MODIFIED FUNCTION---------- -psu 2016.10.26
 		To make the relationship between parent and child. parent
 		thread creates child_data structure and initializes it.		*/
-#ifdef USERPROG
-	t->parent_thread=thread_current();//Set the parent for child.
-	child=(struct child_data*)malloc(sizeof(struct child_data));
-	child->t_child=t;
-	child->status=0;
-	child->child_status=ALIVE;
-	child->is_loaded=NOT_LOADED;
-	child->is_waiting=NO;
-	list_push_back(&(thread_current()->child_tlist),&(child->child_elem));
-	t->pchild_data=child;
-#endif
+	
+	list_push_back(&thread_current()->child_tlist,&t->child_elem);
 
   /* Add to run queue. */
   thread_unblock (t);
@@ -311,11 +299,27 @@ thread_tid (void)
 void
 thread_exit (void) 
 {
+	struct thread *t=thread_current();
+	struct list_elem *e;
   ASSERT (!intr_context ());
 
 #ifdef USERPROG
   process_exit ();
 #endif
+
+	for(e=list_begin(&t->child_tlist);
+		e!=list_end(&t->child_tlist);){
+
+		struct thread * child_thread=list_entry(e,struct thread,child_elem);
+		e=list_remove(e);
+		sema_up(&child_thread->sema_destroy);
+	}
+
+	//ASSERT(t->wait_on_lock==NULL);
+
+	sema_up(&t->sema_wait);
+	sema_down(&t->sema_destroy);
+
 
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
@@ -496,12 +500,11 @@ init_thread (struct thread *t, const char *name, int priority)
 
 	/* ----------MODIFIED FUNCTION----------
 	initialize thread's parent info, and child's info.	*/
-#ifdef USERPROG
-	t->parent_thread=NULL;
-	t->pchild_data=NULL;
-	list_init(&(t->child_tlist));
-#endif
+	sema_init(&t->sema_wait,0);
+	sema_init(&t->sema_load,0);
+	sema_init(&t->sema_destroy,0);
 
+	list_init(&t->child_tlist);
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -633,4 +636,23 @@ bool is_thread_alive(int tid){
 		if(t->tid==tid) return true;
 	}
 	return false;
+}
+
+struct thread*
+get_child_thread(tid_t tid){
+	struct list_elem *e;
+	struct thread* tc=thread_current();
+	
+	//Search Child
+	for(e=list_begin(&tc->child_tlist);
+		e!=list_end(&tc->child_tlist);
+		e=list_next(e)){
+
+		struct thread *child_thread=list_entry(e,struct thread,child_elem);
+
+		if(child_thread->tid==tid)
+			return child_thread;
+	}
+
+	return NULL;
 }
