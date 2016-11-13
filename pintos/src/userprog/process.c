@@ -223,6 +223,12 @@ process_exit (void)
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
+
+	for(cur->cnt_fd--;cur->cnt_fd>=2;cur->cnt_fd--)
+		file_close(cur->fdtable[cur->cnt_fd]);
+
+	file_close(cur->runningfile);
+
   pd = cur->pagedir;
   if (pd != NULL) 
     {
@@ -464,7 +470,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 		free(argu_list[i]);
 	}
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
+  //file_close (file);
   return success;
 }
 

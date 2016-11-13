@@ -184,9 +184,6 @@ thread_create (const char *name, int priority,
   if (t == NULL)
     return TID_ERROR;
 
-  /*Added-kny 2016.11.13*/
-    t->cnt_fd = 2;  
-
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
@@ -217,6 +214,8 @@ thread_create (const char *name, int priority,
 		To make the relationship between parent and child. parent
 		thread creates child_data structure and initializes it.		*/
 	
+	/*Added-kny 2016.11.13*/
+	t->cnt_fd=2;
 	list_push_back(&thread_current()->child_tlist,&t->child_elem);
 
   /* Add to run queue. */

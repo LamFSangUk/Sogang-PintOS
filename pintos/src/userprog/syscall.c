@@ -42,6 +42,7 @@ static int syscall_filesize (int fd);
 static void syscall_seek (int fd, unsigned position);
 static unsigned syscall_tell (int fd);
 static void syscall_close(int fd);
+int process_add_file(struct file *fp);
 struct file * process_get_file(int fd);// MUST change name
 void process_close_file(int fd);    //MUST change name
 struct lock lock_for_syscall;
@@ -285,10 +286,12 @@ syscall_wait (int pid)
 static int
 syscall_read (int fd, void *buffer, unsigned size)
 {
+	if(buffer>PHYS_BASE){
+		syscall_exit(-1);
+	}
 	unsigned i;
     struct file *f;
     lock_acquire(&lock_for_syscall);
-	
     if(fd == STDIN){
     	for(i=0;i<size;i++)
          	((uint8_t*)buffer)[i]=input_getc();//src/devices/input.c return key value(notzero)
@@ -304,13 +307,13 @@ syscall_read (int fd, void *buffer, unsigned size)
         lock_release(&lock_for_syscall);
         return -1;
     }
-    else{
+    //else{
      int ret;
      ret = file_read(f,buffer,size);
     lock_release(&lock_for_syscall);
      return ret;
-    }
-  return -1;
+    //}
+  //return -1;
 }
 
 /*
@@ -320,11 +323,13 @@ syscall_read (int fd, void *buffer, unsigned size)
 static int
 syscall_write (int fd, const void *buffer, unsigned size)
 {
+	//if(buffer>=PHYS_BASE || !is_user_vaddr(buffer+size-1)) syscall_exit(-1);
     struct file *f;
     lock_acquire(&lock_for_syscall);
 
 	if(fd == STDOUT){
   	putbuf((const char *)buffer,size);
+  	lock_release(&lock_for_syscall);
     return size;
     }
     else if(fd == STDIN){
@@ -336,13 +341,13 @@ syscall_write (int fd, const void *buffer, unsigned size)
         lock_release(&lock_for_syscall);
         return 0;
     }
-    else{
+   // else{
         int ret;
         ret = file_write(f,buffer,size);
         lock_release(&lock_for_syscall);
         return ret;
-    }
-	return -1;
+    //}
+	//return -1;
 }
 /*
 	----------ADDED FUNCTION----------
@@ -401,15 +406,19 @@ static bool is_valid_userptr(const void* ptr){
 
 static bool 
 syscall_create (const char * file, unsigned initial_size){
-    if(file == NULL)
-        return false;
+    if(file == NULL){
+    	syscall_exit(-1);
+    	NOT_REACHED();
+		}
     else
         return filesys_create( file, initial_size);
 }
 static bool
 syscall_remove (const char * file){
-    if(file == NULL)
-        return false;
+    if(file == NULL){
+    	syscall_exit(-1);
+    	NOT_REACHED();
+		}
     else
         return filesys_remove(file);
 }
@@ -493,3 +502,4 @@ void process_close_file(int fd){
     file_close (t->fdtable[fd]);
     t->fdtable[fd]= NULL;
 }
+
