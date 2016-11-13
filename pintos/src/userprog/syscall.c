@@ -13,6 +13,9 @@
 #include "userprog/process.h"
 #include "threads/malloc.h"
 #include "threads/synch.h"
+/*proj2_2*/
+#include "filesys/filesys.h"
+#include "filesys/file.h"
 
 #define STDIN 0
 #define STDOUT 1
@@ -30,18 +33,23 @@ static int syscall_fibonacci(int n);
 static int syscall_sum_of_four_integers(int,int ,int,int);
 
 static bool is_valid_userptr(const void* ptr);
-/*na-11.09 make functions*/
+/*na-11.09 Add functions and struct*/
 /*PROJECT2_2*/
-/*static bool syscall_create (const char * file, unsigned initial_size);
+static bool syscall_create (const char * file, unsigned initial_size);
 static bool syscall_remove (const char *file);
 static int syscall_open (const char *file);
 static int syscall_filesize (int fd);
 static void syscall_seek (int fd, unsigned position);
 static unsigned syscall_tell (int fd);
-static void syscall_close(int fd);*/
+static void syscall_close(int fd);
+struct file * process_get_file(int fd);// MUST change name
+void process_close_file(int fd);    //MUST change name
+struct lock lock_for_syscall;
+
 void
 syscall_init (void) 
 {
+  lock_init(&lock_for_syscall);
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 /*na-10.23
@@ -141,7 +149,6 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
 		
 	f->eax=syscall_sum_of_four_integers((int)argu[1],(int)argu[2],(int)argu[3],(int)argu[4]);
   }
-  /*
   else if(syscallnum==SYS_CREATE){//
     if(!is_valid_userptr((const void*)&argu[1])
             || !is_valid_userptr((const void*)&argu[2])){
@@ -149,7 +156,7 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
 			return;
 	}
  	
-  	f->eax=syscall_create((const char *)argu[1],(unsigned)argue[2]);
+  	f->eax=syscall_create((const char *)argu[1],(unsigned)argu[2]);
   }
   else if(syscallnum==SYS_REMOVE){
 	if(!is_valid_userptr((const void*)&argu[1])){
@@ -157,7 +164,7 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
 			return;
 	  }
   	
-  	f->eax=syscall_remove((int)argu[1]);
+  	f->eax=syscall_remove((const char *)argu[1]);
 
   }
   else if(syscallnum==SYS_OPEN){
@@ -166,9 +173,9 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
 			return;
 	  }
   	
-  	f->eax=syscall_open((int)argu[1]);
+  	f->eax=syscall_open((const char *)argu[1]);
 }
-  else if(syscallnum==SYS_ClOSE){
+  else if(syscallnum==SYS_CLOSE){
   	if(!is_valid_userptr((const void*)&argu[1])){
 			syscall_exit(-1);
 			return;
@@ -191,7 +198,7 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
 			return;
 	}
 
-    syscall_seek((int)argu[1],(unsigned)argue[2]);
+    syscall_seek((int)argu[1],(unsigned)argu[2]);
   }
   else if(syscallnum==SYS_TELL){
  	if(!is_valid_userptr((const void*)&argu[1])){
@@ -201,7 +208,6 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
   	
   	f->eax=syscall_tell((int)argu[1]);
  }
-*/
 }
 
 /*
@@ -278,13 +284,30 @@ static int
 syscall_read (int fd, void *buffer, unsigned size)
 {
 	unsigned i;
-
-	if(fd == STDIN){
-  	for(i=0;i<size;i++)
-    	((uint8_t*)buffer)[i]=input_getc();//src/devices/input.c return key value(notzero)
-      return size;
-  }
-  
+    struct file *f;
+    lock_acquire(&lock_for_syscall);
+	
+    if(fd == STDIN){
+    	for(i=0;i<size;i++)
+         	((uint8_t*)buffer)[i]=input_getc();//src/devices/input.c return key value(notzero)
+        lock_release(&lock_for_syscall);  
+       return size;
+    }
+    else if(fd == STDOUT){
+        lock_release(&lock_for_syscall);
+        return -1;
+    }
+    f = process_get_file(fd);
+    if(f==NULL){
+        lock_release(&lock_for_syscall);
+        return -1;
+    }
+    else{
+     int ret;
+     ret = file_read(f,buffer,size);
+    lock_release(&lock_for_syscall);
+     return ret;
+    }
   return -1;
 }
 
@@ -292,15 +315,31 @@ syscall_read (int fd, void *buffer, unsigned size)
 	----------ADDED FUNCTION----------
 	syscall_write prints the data which is saved in buffer.
 	We just implemented STDOUT.															*/
-
 static int
 syscall_write (int fd, const void *buffer, unsigned size)
 {
+    struct file *f;
+    lock_acquire(&lock_for_syscall);
+
 	if(fd == STDOUT){
   	putbuf((const char *)buffer,size);
     return size;
-  }
-	
+    }
+    else if(fd == STDIN){
+        lock_release(&lock_for_syscall);
+        return -1;
+    }
+    f = process_get_file(fd);
+    if(f==NULL){
+        lock_release(&lock_for_syscall);
+        return 0;
+    }
+    else{
+        int ret;
+        ret = file_write(f,buffer,size);
+        lock_release(&lock_for_syscall);
+        return ret;
+    }
 	return -1;
 }
 /*
@@ -333,7 +372,6 @@ syscall_fibonacci(int _n_input)
 		return _n_2;
 	}
 }
-
 /*
 	----------ADDED FUNCTION----------
 	syscall_sum_of_four_integers just calculate the sum of
@@ -359,27 +397,80 @@ static bool is_valid_userptr(const void* ptr){
 		return is_user_vaddr(ptr);
 }
 
-/*
-bool 
+static bool 
 syscall_create (const char * file, unsigned initial_size){
-    return filesys_create( file, initial_size);
+    if(file == NULL)
+        return false;
+    else
+        return filesys_create( file, initial_size);
 }
-bool
+static bool
 syscall_remove (const char * file){
+    if(file == NULL)
+        return false;
+    else
+        return filesys_remove(file);
 }
-int
+static int
 syscall_open(const char *file){
+    if(file == NULL)
+        return -1;
+    
+    lock_acquire(&lock_for_syscall);
+    
+    struct file *fp = filesys_open(file);
+
+    if(fp == NULL){
+        lock_release(&lock_for_syscall);
+        return -1;
+    }
+    else{
+        struct thread *t = thread_current();
+        int fd = t->cnt_fd++;
+        t->fdtable[fd]=fp;
+
+        lock_release(&lock_for_syscall);
+        
+        return fd;
+    }
+    return -1;
 }
-int
+static int
 syscall_filesize (int fd){
+    struct file *fp = process_get_file(fd);
+    if(fp == NULL)
+        return -1;
+    return file_length(fp);
 }
-void
+static void
 syscall_seek (int fd, unsigned position){
+    struct file *fp = process_get_file(fd);
+    if(fp == NULL)
+        return ;
+    file_seek(fp, position);
 }
-unsigned
+static unsigned
 syscall_tell(int fd){
+    struct file *fp = process_get_file(fd);
+    if(fp == NULL)
+        syscall_exit(-1);
+    return file_tell(fp);
 }
-void
+static void
 syscall_close(int fd){
+    process_close_file(fd); //fd를 가지고 close할 함수 만들기
 }
-*/
+struct file *
+process_get_file (int fd){
+    struct thread *t = thread_current();
+    if(fd<=1||t->cnt_fd<=fd)
+        return NULL;
+    return t->fdtable[fd];
+}
+void process_close_file(int fd){
+    struct thread *t = thread_current();
+    if (fd <=1||t->cnt_fd<=fd)
+        return ;
+    file_close (t->fdtable[fd]);
+    t->fdtable[fd]= NULL;
+}
