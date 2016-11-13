@@ -27,6 +27,7 @@
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
+extern struct lock lock_for_syscall;
 /****************************************/
 /* 
  na-2016.10.22
@@ -348,16 +349,28 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
-/*na-2016.10.22*/
+/*kny-2016.11.13*/
+  lock_acquire(&lock_for_syscall);
+
+  /*na-2016.10.22*/
   argu_num = parse_filename(file_name, argu_list);
   strlcpy(t->name,file_name,strlen(file_name)+1);
   /* Open executable file. */
+
   file = filesys_open (t->name);
+  
   if (file == NULL) 
     {
       printf ("load: %s: open failed\n", t->name);
+      lock_release(&lock_for_syscall);
       goto done; 
     }
+/*kny-2016.11.13*/
+  t->runningfile = file;
+  file_deny_write(file);//file에 머가 들어가야할지 확실히 
+  lock_release(&lock_for_syscall);
+
+
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
