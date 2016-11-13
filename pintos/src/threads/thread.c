@@ -184,6 +184,9 @@ thread_create (const char *name, int priority,
   if (t == NULL)
     return TID_ERROR;
 
+  /*Added-kny 2016.11.13*/
+    t->cnt_fd = 2;  
+
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
