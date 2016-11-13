@@ -49,8 +49,9 @@ struct lock lock_for_syscall;
 void
 syscall_init (void) 
 {
-  lock_init(&lock_for_syscall);
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
+
+  lock_init(&lock_for_syscall);
 }
 /*na-10.23
 	----------MODIFIED FUNCTION----------
@@ -208,6 +209,7 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
   	
   	f->eax=syscall_tell((int)argu[1]);
  }
+
 }
 
 /*
@@ -415,7 +417,13 @@ static int
 syscall_open(const char *file){
     if(file == NULL)
         return -1;
-    
+   int result = -1;
+
+    lock_acquire(&lock_for_syscall);
+    result = process_add_file(filesys_open(file));
+    lock_release(&lock_for_syscall);
+    return result;
+   /*
     lock_acquire(&lock_for_syscall);
     
     struct file *fp = filesys_open(file);
@@ -433,7 +441,7 @@ syscall_open(const char *file){
         
         return fd;
     }
-    return -1;
+    return -1;*/
 }
 static int
 syscall_filesize (int fd){
@@ -459,6 +467,17 @@ syscall_tell(int fd){
 static void
 syscall_close(int fd){
     process_close_file(fd); //fd를 가지고 close할 함수 만들기
+}
+int process_add_file(struct file *f){
+    struct thread *t;
+    int fd;
+    if (f == NULL)
+        return -1;
+    t =  thread_current();
+    
+    fd = t->cnt_fd++;
+    t->fdtable[fd] = f;
+    return fd;
 }
 struct file *
 process_get_file (int fd){
