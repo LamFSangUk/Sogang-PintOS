@@ -125,6 +125,7 @@ struct thread
     /*project 2_2*/
         int cnt_fd;                 //number of filedescriptor which has been used ,즉 next_fd
         struct file *fdtable[128];
+        struct file *runningfile;
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
 
