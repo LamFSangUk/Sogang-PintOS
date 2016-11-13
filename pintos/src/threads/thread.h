@@ -121,7 +121,10 @@ struct thread
 		struct semaphore sema_wait;
 		struct semaphore sema_load;
 		struct semaphore sema_destroy;
-
+    //Added -kny 2016.11.13
+    /*project 2_2*/
+        int cnt_fd;                 //number of filedescriptor which has been used ,즉 next_fd
+        struct file *fdtable[128];
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
 
