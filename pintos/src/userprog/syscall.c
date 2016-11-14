@@ -84,7 +84,7 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
 	//Get the syscallnum from esp.
   syscallnum = *(int*)(f->esp);
   argu=(int*)(f->esp);
-  
+ 
   if (syscallnum == SYS_HALT){
     syscall_halt();
   }
@@ -401,7 +401,7 @@ static bool is_valid_userptr(const void* ptr){
  		return false;
  	}
 	else
-		return is_user_vaddr(ptr);
+		return is_user_vaddr(ptr) && ptr>=(void*)0x08048000UL;
 }
 
 static bool 
@@ -470,7 +470,7 @@ static unsigned
 syscall_tell(int fd){
     struct file *fp = process_get_file(fd);
     if(fp == NULL)
-        syscall_exit(-1);
+        return -1;
     return file_tell(fp);
 }
 static void

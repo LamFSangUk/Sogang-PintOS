@@ -516,7 +516,7 @@ validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
      it then user code that passed a null pointer to system calls
      could quite likely panic the kernel by way of null pointer
      assertions in memcpy(), etc. */
-  if (phdr->p_offset < PGSIZE)//psu 2016.10.23 modify vaddr->offset
+  if (phdr->p_vaddr < PGSIZE)//psu 2016.10.23 modify vaddr->offset
     return false;
 
   /* It's okay. */
