@@ -27,7 +27,7 @@
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
-extern struct lock lock_for_syscall;
+extern struct lock _lock_for_file;
 /****************************************/
 /* 
  na-2016.10.22
@@ -204,12 +204,12 @@ process_wait (tid_t child_tid UNUSED)
 	struct thread *child_thread;
 	int exit_status;
 
-	if(!(child_thread=get_child_thread(child_tid))) return -1;
+	if(!(child_thread=thread_get_child(child_tid))) return -1;
 
 	sema_down(&child_thread->sema_wait);
 	list_remove(&child_thread->child_elem);
 	exit_status=child_thread->exit_status;
-	sema_up(&child_thread->sema_destroy);
+	sema_up(&child_thread->sema_elim);
 
 	return exit_status;
 }
@@ -221,13 +221,14 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
-  /* Destroy the current process's page directory and switch back
-     to the kernel-only page directory. */
+	cur->fd_num=cur->fd_num-1; //Cause fd_num point to fd_tab for next file descripter.
+	for(;cur->fd_num>=2;cur->fd_num--)
+		file_close(cur->fd_tab[cur->fd_num]);
 
-	for(cur->cnt_fd--;cur->cnt_fd>=2;cur->cnt_fd--)
-		file_close(cur->fdtable[cur->cnt_fd]);
+	file_close(cur->exec_file);
 
-	file_close(cur->runningfile);
+	/* Destroy the current process's page directory and switch back
+		 to the kernel-only page directory. */
 
   pd = cur->pagedir;
   if (pd != NULL) 
@@ -356,7 +357,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
 /*kny-2016.11.13*/
-  lock_acquire(&lock_for_syscall);
+  lock_acquire(&_lock_for_file);
 
   /*na-2016.10.22*/
   argu_num = parse_filename(file_name, argu_list);
@@ -368,13 +369,13 @@ load (const char *file_name, void (**eip) (void), void **esp)
   if (file == NULL) 
     {
       printf ("load: %s: open failed\n", t->name);
-      lock_release(&lock_for_syscall);
+      lock_release(&_lock_for_file);
       goto done; 
     }
 /*kny-2016.11.13*/
-  t->runningfile = file;
+  t->exec_file = file;
   file_deny_write(file);//file에 머가 들어가야할지 확실히 
-  lock_release(&lock_for_syscall);
+  lock_release(&_lock_for_file);
 
 
 
