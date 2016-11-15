@@ -25,18 +25,6 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
-//2016.10.27
-#define NO 0
-#define YES 1
-
-#define ALIVE 0
-#define KILLED 1
-#define COMPLETE_EXIT 2
-
-#define LOAD_SUCCESS 0
-#define NOT_LOADED 1
-#define LOAD_FAIL 2
-
 /* A kernel thread or user process.
 
    Each thread structure is stored in its own 4 kB page.  The
@@ -111,21 +99,22 @@ struct thread
     uint32_t *pagedir;                  /* Page directory. */
 #endif
 	//Added -psu 2016.10.26
-   // struct thread *parent_thread;				/* parent threads. */
-    struct list child_tlist; 						/* list for child threads. */
+    struct list child_tlist; 						/* List for child threads. */
 		struct list_elem child_elem;		  	/* child's INFO. */
 
-		int is_loaded;
-		int exit_status;
+		int is_loaded;											/* Check for the thread is successfully loaded. */
+		int exit_status;										/* Save the Status returned by exit. */
 
+		//modefied to replace busy-waiting. Synchronizing.
 		struct semaphore sema_wait;
 		struct semaphore sema_load;
-		struct semaphore sema_destroy;
+		struct semaphore sema_elim;
     //Added -kny 2016.11.13
     /*project 2_2*/
-        int cnt_fd;                 //number of filedescriptor which has been used ,즉 next_fd
-        struct file *fdtable[128];
-        struct file *runningfile;
+    int fd_num;                 //number of filedescriptor which has been used ,즉 next_fd
+    struct file *fd_tab[128];
+    struct file *exec_file;
+
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
 
@@ -167,9 +156,7 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
-bool is_thread_alive(int tid);
-bool is_thread(struct thread *);
-
-struct thread* get_child_thread(tid_t);
+//Added Function
+struct thread* thread_get_child(tid_t);
 
 #endif /* threads/thread.h */

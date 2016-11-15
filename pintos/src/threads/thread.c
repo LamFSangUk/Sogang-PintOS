@@ -13,11 +13,7 @@
 #include "threads/vaddr.h"
 #ifdef USERPROG
 #include "userprog/process.h"
-#include "userprog/syscall.h"
-#include "threads/malloc.h"
 #endif
-
-#define NO_PARENT -1
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
@@ -69,7 +65,7 @@ static void idle (void *aux UNUSED);
 static struct thread *running_thread (void);
 static struct thread *next_thread_to_run (void);
 static void init_thread (struct thread *, const char *name, int priority);
-//static bool is_thread (struct thread *) UNUSED;
+static bool is_thread (struct thread *) UNUSED;
 static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
@@ -210,12 +206,14 @@ thread_create (const char *name, int priority,
 
   intr_set_level (old_level);
 
-	/* ----------MODIFIED FUNCTION---------- -psu 2016.10.26
-		To make the relationship between parent and child. parent
-		thread creates child_data structure and initializes it.		*/
+	/* ----------MODIFIED FUNCTION---------- -psu 2016.11.15
+		To make the relationship between parent and child. New thread t
+		will be the child thread and current thread will be parent of it.
+		And Set the fd_num=2 because stdin_fileno=0,stdout_fileno=1. So,
+		the next file descripter's num is 2.*/
 	
 	/*Added-kny 2016.11.13*/
-	t->cnt_fd=2;
+	t->fd_num=2;
 	list_push_back(&thread_current()->child_tlist,&t->child_elem);
 
   /* Add to run queue. */
@@ -301,26 +299,33 @@ thread_tid (void)
 void
 thread_exit (void) 
 {
-	struct thread *t=thread_current();
+	struct thread *tc=thread_current();
 	struct list_elem *e;
   ASSERT (!intr_context ());
 
 #ifdef USERPROG
   process_exit ();
 #endif
+	
+	/* ---------- MODIFIED FUNCTION ---------- -psu 2016.11.15
+		 When the thread is exiting, the thread must die after 
+		 eliminating all child threads. After the thread's children
+		 exits, the thread's work is over, So it alert to the parent
+		 thread to go on.
+	*/	
 
-	for(e=list_begin(&t->child_tlist);
-		e!=list_end(&t->child_tlist);){
+	for(e=list_begin(&tc->child_tlist);
+			e!=list_end(&tc->child_tlist);){
 
 		struct thread * child_thread=list_entry(e,struct thread,child_elem);
 		e=list_remove(e);
-		sema_up(&child_thread->sema_destroy);
+		sema_up(&child_thread->sema_elim);
 	}
 
-	//ASSERT(t->wait_on_lock==NULL);
+	sema_up(&tc->sema_wait);
 
-	sema_up(&t->sema_wait);
-	sema_down(&t->sema_destroy);
+	//Wait for parent thread's wait() complete or exit.
+	sema_down(&tc->sema_elim);
 
 
   /* Remove thread from all threads list, set our status to dying,
@@ -501,10 +506,10 @@ init_thread (struct thread *t, const char *name, int priority)
   list_push_back (&all_list, &t->allelem);
 
 	/* ----------MODIFIED FUNCTION----------
-	initialize thread's parent info, and child's info.	*/
+	initialize thread's semaphore and child list.	*/
 	sema_init(&t->sema_wait,0);
 	sema_init(&t->sema_load,0);
-	sema_init(&t->sema_destroy,0);
+	sema_init(&t->sema_elim,0);
 
 	list_init(&t->child_tlist);
 }
@@ -625,23 +630,11 @@ uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
 /* 
 	----------ADDED FUNCTION----------
-	Check the thread is NOT COMPLETELY DEAD. We can check by
-	searching the 'all_list'. If the thread is alive return true,
-	else return false.																					*/
-bool is_thread_alive(int tid){
-	struct list_elem *e;
-	struct thread* t=NULL;
+	Find the Child Thread whose tid is same as integer parameter.	
+	if it exists, return the thread, else return NULL.					*/
 
-	for(e=list_begin(&all_list);e!=list_end(&all_list);
-		e=list_next(e)){
-		t=list_entry(e,struct thread, allelem);
-		if(t->tid==tid) return true;
-	}
-	return false;
-}
-
-struct thread*
-get_child_thread(tid_t tid){
+struct thread *
+thread_get_child(tid_t tid){
 	struct list_elem *e;
 	struct thread* tc=thread_current();
 	
