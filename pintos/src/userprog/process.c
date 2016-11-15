@@ -43,35 +43,35 @@ extern struct lock _lock_for_file;
 int
 parse_filename(const char *file_name, char *argu_list[MAX_ARGS])
 {
-    char *s,*token, *save_ptr;
-    int cnt = 0,len_file_name,len_token;
+	char *s,*token, *save_ptr;
+  int cnt = 0,len_file_name,len_token;
 
 	len_file_name=strlen(file_name)+1;
 	s=(char*)malloc(sizeof(char)*len_file_name);
 
 	strlcpy(s,file_name,len_file_name);
 
-    for(token = strtok_r(s, " ",  &save_ptr) ; token != NULL;
-        token = strtok_r(NULL, " ",  &save_ptr)) 
-    {
-    	len_token=strlen(token)+1;
-        if(cnt ==0)
-        {
-            strlcpy((char*)file_name, token, len_token);
+  for(token = strtok_r(s, " ",  &save_ptr) ; token != NULL;
+  		token = strtok_r(NULL, " ",  &save_ptr)) 
+  	{
+  		len_token=strlen(token)+1;
+      
+      if(cnt ==0)
+      	{
+        	strlcpy((char*)file_name, token, len_token);
         }
         
+      argu_list[cnt]=(char*)malloc(sizeof(char)*len_token);
+      strlcpy(argu_list[cnt],token, len_token);
         
-        argu_list[cnt]=(char*)malloc(sizeof(char)*len_token);
-        strlcpy(argu_list[cnt],token, len_token);
-        
-        cnt++;
+      cnt++;
     }
 
 	free(s);
 
-    return cnt;
-    //make the argulist.
-    //return the number of argus.
+  return cnt;
+  //make the argulist.
+  //return the number of argus.
 }
 /*
  psu-2016.10.22
@@ -83,39 +83,41 @@ parse_filename(const char *file_name, char *argu_list[MAX_ARGS])
 void
 construct_ESP(void **esp, char *argu_list[MAX_ARGS],int argu_num)
 {
-    size_t size_argu; 
-    int i, totallen_align = 0;              //totallen_align is total sum of argument lengths when we calculate all length of the arguments FOR word alignment!!
-    int addr[128];
+	size_t size_argu; 
+	int i, totallen_align = 0;              //totallen_align is total sum of argument lengths when we calculate all length of the arguments FOR word alignment!!
+  int addr[128];
 
-    memset(addr,0,argu_num*sizeof(int));
+  memset(addr,0,argu_num*sizeof(int));
     /*1. argv[3]~argv[0] memset*/
-    for(i=argu_num-1;i>=0;i--){
-        
-        //TODO : copy string to esp(maybe use memcpy)
-        size_argu=strlen(argu_list[i])+1;     //strlen() doesn't count NULL character. so each size_argu  plus more 1.
-        totallen_align += size_argu;
-        *esp-=size_argu;
-        addr[i] = (int)*esp;
-        memcpy(*esp,argu_list[i],size_argu);
-    }
+  for(i=argu_num-1;i>=0;i--){
+       
+  	//TODO : copy string to esp(maybe use memcpy)
+    size_argu=strlen(argu_list[i])+1;     //strlen() doesn't count NULL character. so each size_argu  plus more 1.
+    totallen_align += size_argu;
+    *esp-=size_argu;
+    addr[i] = (int)*esp;
+    memcpy(*esp,argu_list[i],size_argu);
+  }
  
-    /*2. padding */
-    if(totallen_align%4!=0){ 
-         for(i=0; i< 4-(totallen_align%4);i++){
-             *esp-= 1;
-            memset(*esp, 0, sizeof(uint8_t));       
-         }
+  /*2. padding */
+  if(totallen_align%4!=0){ 
+  	for(i=0; i< 4-(totallen_align%4);i++){
+    	*esp-= 1;
+     	memset(*esp, 0, sizeof(uint8_t));       
     }
-    /*3. argv[4] memcpy  */
-    *esp-=4;
-    memset(*esp, 0, sizeof(char *));
+  }
+  
+  /*3. argv[4] memcpy  */
+  *esp-=4;
+  memset(*esp, 0, sizeof(char *));
 
-    /*4. argv[3]~argv[0] memcpy */
-    for(i=argu_num-1;i>=0;i--){ 
-        *esp-= 4;
-        memcpy(*esp,&addr[i],sizeof(char*));
-    }
-    //TODO : argv memset
+  /*4. argv[3]~argv[0] memcpy */
+  for(i=argu_num-1;i>=0;i--){ 
+  	*esp-= 4;
+    memcpy(*esp,&addr[i],sizeof(char*));
+  }
+  
+  //TODO : argv memset
 	*esp-=4;
 	*(char**)*esp=*esp+4;
 	*esp-=4;
@@ -124,8 +126,8 @@ construct_ESP(void **esp, char *argu_list[MAX_ARGS],int argu_num)
 	*(int*)*esp=0;
 
 
-    //To debug
-    //hex_dump((uintptr_t)*esp,(const char*)*esp,PHYS_BASE-(uintptr_t)*esp,true);
+  //To debug
+  //hex_dump((uintptr_t)*esp,(const char*)*esp,PHYS_BASE-(uintptr_t)*esp,true);
 }
 /******************************************/
 /* Starts a new thread running a user program loaded from
@@ -204,14 +206,15 @@ process_wait (tid_t child_tid UNUSED)
 	struct thread *child_thread;
 	int exit_status;
 
-	if(!(child_thread=thread_get_child(child_tid))) return -1;
+	if((child_thread=thread_get_child(child_tid))!=NULL){
+		sema_down(&child_thread->sema_wait);
+		list_remove(&child_thread->child_elem);
+		exit_status=child_thread->exit_status;
+		sema_up(&child_thread->sema_elim);
 
-	sema_down(&child_thread->sema_wait);
-	list_remove(&child_thread->child_elem);
-	exit_status=child_thread->exit_status;
-	sema_up(&child_thread->sema_elim);
-
-	return exit_status;
+		return exit_status;
+	}
+	return -1;
 }
 
 /* Free the current process's resources. */
@@ -221,6 +224,7 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
+	//Close currnet thread's all files.
 	cur->fd_num=cur->fd_num-1; //Cause fd_num point to fd_tab for next file descripter.
 	for(;cur->fd_num>=2;cur->fd_num--)
 		file_close(cur->fd_tab[cur->fd_num]);
@@ -356,28 +360,24 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
-/*kny-2016.11.13*/
-  lock_acquire(&_lock_for_file);
-
   /*na-2016.10.22*/
   argu_num = parse_filename(file_name, argu_list);
   strlcpy(t->name,file_name,strlen(file_name)+1);
   /* Open executable file. */
-
+	
+	/*kny-2016.11.13*/
+	lock_acquire(&_lock_for_file);
   file = filesys_open (t->name);
+  lock_release(&_lock_for_file);
   
   if (file == NULL) 
     {
       printf ("load: %s: open failed\n", t->name);
-      lock_release(&_lock_for_file);
       goto done; 
     }
-/*kny-2016.11.13*/
+	/*kny-2016.11.13*/
   t->exec_file = file;
-  file_deny_write(file);//file에 머가 들어가야할지 확실히 
-  lock_release(&_lock_for_file);
-
-
+  file_deny_write(file); 
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -391,7 +391,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
       printf ("load: %s: error loading executable\n", t->name);
       goto done; 
     }
-
 
   /* Read program headers. */
   file_ofset = ehdr.e_phoff;
