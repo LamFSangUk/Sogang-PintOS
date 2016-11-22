@@ -24,6 +24,9 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
+//proj3
+static struct list sleeping_list;
+
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
@@ -92,6 +95,9 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+
+	//proj3
+	list_init (&sleeping_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -650,4 +656,22 @@ thread_get_child(tid_t tid){
 	}
 
 	return NULL;
+}
+
+void 
+thread_sleep(int64_t wake_tick){
+	struct thread *tc;
+	enum intr_level old_level;
+
+	//Ban the interrupt.
+	cur=thread_current();
+	old_level=intr_disable();
+
+	cur->wake_tick=wake_tick;
+
+	list_insert_ordered(&sleeping_list,&cur->elem,/*rule*/,NULL);
+
+	thread_block();
+
+	intr_set_level(old_level);
 }
