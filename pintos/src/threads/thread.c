@@ -73,6 +73,8 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+static bool cmp_sleeping_thread(const struct list_elem*,const struct list_elem*,void *);
+
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -659,19 +661,35 @@ thread_get_child(tid_t tid){
 }
 
 void 
-thread_sleep(int64_t wake_tick){
-	struct thread *tc;
-	enum intr_level old_level;
+thread_sleep(int64_t wake_up_tick){
+	struct thread *tc=thread_current();
 
-	//Ban the interrupt.
-	cur=thread_current();
-	old_level=intr_disable();
-
-	cur->wake_tick=wake_tick;
-
-	list_insert_ordered(&sleeping_list,&cur->elem,/*rule*/,NULL);
-
+	tc->wake_up_tick=wake_up_tick;
+	list_insert_ordered(&sleeping_list,&tc->elem,cmp_sleeping_thread,NULL);
 	thread_block();
+}
 
-	intr_set_level(old_level);
+void thread_wake_up(int64_t now_tick){
+		
+	while(!list_empty(&sleeping_list)){
+		struct list_elem *e=list_front(&sleeping_list);
+		struct thread *t=list_entry(e,struct thread,elem);
+
+		if(now_tick>=t->wake_up_tick){
+			list_pop_front(&sleeping_list);
+			thread_unblock(t);
+		}
+		else break;
+	}
+}
+
+static bool 
+cmp_sleeping_thread(const struct list_elem* a,const struct list_elem* b,void * aux UNUSED){
+	struct thread *t_a,*t_b;
+
+	t_a=list_entry(a,struct thread,elem);
+	t_b=list_entry(b,struct thread,elem);
+
+	if(t_b->wake_up_tick>t_a->wake_up_tick) return true;
+	else return false;
 }

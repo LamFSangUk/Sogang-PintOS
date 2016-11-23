@@ -118,7 +118,7 @@ struct thread
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
 		
-		int64_t wake_tick;
+		int64_t wake_up_tick;
   };
 
 /* If false (default), use round-robin scheduler.
@@ -161,6 +161,7 @@ int thread_get_load_avg (void);
 struct thread* thread_get_child(tid_t);
 
 //proj3
-void thread_sleep(int64_t wake_tick);
+void thread_sleep(int64_t wake_up_tick);
+void thread_wake_up(int64_t now_tick);
 
 #endif /* threads/thread.h */
