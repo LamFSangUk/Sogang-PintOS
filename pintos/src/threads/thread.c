@@ -74,7 +74,6 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 static bool cmp_sleeping_thread(const struct list_elem*,const struct list_elem*,void *);
-static bool cmp_priority_thread(const struct list_elem*,const struct list_elem*,void *);
 
 
 /* Initializes the threading system by transforming the code
@@ -699,7 +698,7 @@ cmp_sleeping_thread(const struct list_elem* a,const struct list_elem* b,void * a
 	return t_b->wake_up_tick>t_a->wake_up_tick; 
 }
 
-static bool 
+bool 
 cmp_priority_thread(const struct list_elem *a,const struct list_elem *b,void * aux UNUSED){
 	struct thread *t_a,*t_b;
 	t_a=list_entry(a,struct thread,elem);

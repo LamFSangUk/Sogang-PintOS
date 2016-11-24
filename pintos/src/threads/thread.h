@@ -163,5 +163,6 @@ struct thread* thread_get_child(tid_t);
 //proj3
 void thread_sleep(int64_t wake_up_tick);
 void thread_wake_up(int64_t now_tick);
+bool cmp_priority_thread(const struct list_elem*,const struct list_elem*,void *);
 
 #endif /* threads/thread.h */
