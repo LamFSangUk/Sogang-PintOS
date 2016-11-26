@@ -14,6 +14,8 @@
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
+#include "lib/kernel/arith_fp.h"
+#include "devices/timer.h"
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
@@ -63,6 +65,8 @@ bool thread_prior_aging;
 static unsigned aging_ticks;
 #endif
 
+int load_avg;
+
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
@@ -108,6 +112,7 @@ thread_init (void)
 
 	//proj3
 	list_init (&sleeping_list);
+	load_avg=0;
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -150,6 +155,57 @@ thread_tick (void)
   else
     kernel_ticks++;
 
+  if(thread_mlfqs){
+  	int64_t ticks=timer_ticks();
+		struct list_elem *e;
+		enum intr_level old_level;
+		old_level = intr_disable();
+
+  	t->recent_cpu=add_FP_to_FP(t->recent_cpu,int_to_FP(1));
+
+		if(ticks % TIMER_FREQ == 0){
+			int ready_threads=0;
+			int double_load_avg;
+			int recent_cpu;
+
+			for(e=list_begin(&ready_list);
+					e!=list_end(&ready_list);
+					e=list_next(e))
+				ready_threads++;
+			if(t==idle_thread) ready_threads--;
+			ready_threads++;
+
+			load_avg=mul_FP_to_FP(div_FP_to_FP(int_to_FP(59),int_to_FP(60)),load_avg);
+			load_avg=add_FP_to_FP(load_avg,mul_FP_to_FP(div_FP_to_FP(int_to_FP(1),int_to_FP(60)),int_to_FP(ready_threads)));
+			double_load_avg=mul_FP_to_FP(load_avg,int_to_FP(2));
+			
+			for(e=list_begin(&all_list);e!=list_end(&all_list);
+					e=list_next(e)){
+				struct thread *pthread=list_entry(e,struct thread,allelem);
+				recent_cpu=div_FP_to_FP(double_load_avg,add_FP_to_FP(double_load_avg,int_to_FP(1)));
+				recent_cpu=mul_FP_to_FP(recent_cpu,pthread->recent_cpu);
+				pthread->recent_cpu=add_FP_to_FP(recent_cpu,int_to_FP(t->nice));
+			}
+		}
+
+		if(ticks % TIME_SLICE == 0){
+			for(e=list_begin(&all_list);e!=list_end(&all_list);
+					e=list_next(e)){
+				struct thread *pthread=list_entry(e,struct thread,allelem);
+				int priority=int_to_FP(PRI_MAX);
+				priority=sub_FP_to_FP(priority,div_FP_to_FP(pthread->recent_cpu,int_to_FP(4)));
+				priority=sub_FP_to_FP(priority,int_to_FP(pthread->nice*2));
+				priority=FP_to_int(priority);
+				if(priority>PRI_MAX) priority=PRI_MAX;
+				if(priority<PRI_MIN) priority=PRI_MIN;
+				pthread->priority=priority;
+			}
+		}
+
+		intr_set_level(old_level);
+
+	}
+  
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
@@ -419,6 +475,7 @@ void
 thread_set_nice (int nice UNUSED) 
 {
   /* Not yet implemented. */
+  thread_current()->nice=nice;
 }
 
 /* Returns the current thread's nice value. */
@@ -426,7 +483,7 @@ int
 thread_get_nice (void) 
 {
   /* Not yet implemented. */
-  return 0;
+  return thread_current ()->nice;
 }
 
 /* Returns 100 times the system load average. */
@@ -434,7 +491,7 @@ int
 thread_get_load_avg (void) 
 {
   /* Not yet implemented. */
-  return 0;
+  return FP_to_int(mul_FP_to_FP(load_avg,int_to_FP(100)));
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
@@ -442,7 +499,7 @@ int
 thread_get_recent_cpu (void) 
 {
   /* Not yet implemented. */
-  return 0;
+  return FP_to_int(mul_FP_to_FP(thread_current()->recent_cpu,int_to_FP(100)));
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -539,6 +596,15 @@ init_thread (struct thread *t, const char *name, int priority)
 	sema_init(&t->sema_elim,0);
 
 	list_init(&t->child_tlist);
+	
+	if(t!=initial_thread){
+		t->nice=thread_current()->nice;
+		t->recent_cpu=thread_current()->recent_cpu;
+	}
+	else{
+		t->nice=0;
+		t->recent_cpu=0;
+	}
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and

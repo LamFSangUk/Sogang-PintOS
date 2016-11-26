@@ -124,6 +124,8 @@ struct thread
     unsigned magic;                     /* Detects stack overflow. */
 		
 		int64_t wake_up_tick;
+		int nice;
+		int recent_cpu;
   };
 
 /* If false (default), use round-robin scheduler.
