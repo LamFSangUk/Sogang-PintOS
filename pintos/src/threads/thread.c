@@ -168,12 +168,14 @@ thread_tick (void)
 			int double_load_avg;
 			int recent_cpu;
 
-			for(e=list_begin(&ready_list);
-					e!=list_end(&ready_list);
-					e=list_next(e))
-				ready_threads++;
-			if(t==idle_thread) ready_threads--;
-			ready_threads++;
+			for(e=list_begin(&all_list);
+					e!=list_end(&all_list);
+					e=list_next(e)){
+				struct thread *pthread = list_entry(e,struct thread,allelem);
+				if(pthread!=idle_thread
+					&&(pthread->status==THREAD_READY || pthread->status==THREAD_RUNNING))
+					ready_threads++;
+			}
 
 			load_avg=mul_FP_to_FP(div_FP_to_FP(int_to_FP(59),int_to_FP(60)),load_avg);
 			load_avg=add_FP_to_FP(load_avg,mul_FP_to_FP(div_FP_to_FP(int_to_FP(1),int_to_FP(60)),int_to_FP(ready_threads)));
@@ -184,7 +186,7 @@ thread_tick (void)
 				struct thread *pthread=list_entry(e,struct thread,allelem);
 				recent_cpu=div_FP_to_FP(double_load_avg,add_FP_to_FP(double_load_avg,int_to_FP(1)));
 				recent_cpu=mul_FP_to_FP(recent_cpu,pthread->recent_cpu);
-				pthread->recent_cpu=add_FP_to_FP(recent_cpu,int_to_FP(t->nice));
+				pthread->recent_cpu=add_FP_to_FP(recent_cpu,int_to_FP(pthread->nice));
 			}
 		}
 
