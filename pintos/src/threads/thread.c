@@ -26,7 +26,9 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
-//proj3
+/*proj3*/
+/* List of processes in THREAD_BLOCK state, that is, processes
+	 that are blocked until wake_up_tick. */
 static struct list sleeping_list;
 
 /* List of all processes.  Processes are added to this list
@@ -61,11 +63,15 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
 
 #ifndef USERPROG
 /*proj 3*/
+/* If false (default), it doesn't use aging method.
+	 If true, use aging method to priority scheduling to prevent starvation.
+	 Controlled by kernel command-line option -o aging". */
 bool thread_prior_aging;
-static unsigned aging_ticks;
+
+static unsigned aging_ticks;		/* # of timer ticks for aging. */
 #endif
 
-int load_avg;
+int load_avg;										/* # of threads that state THREAD_READY,THREAD_RUNNING. */
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -110,9 +116,9 @@ thread_init (void)
   list_init (&ready_list);
   list_init (&all_list);
 
-	//proj3
+	/* proj3 */
 	list_init (&sleeping_list);
-	load_avg=0;
+	load_avg = 0;
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -154,20 +160,24 @@ thread_tick (void)
 #endif
   else
     kernel_ticks++;
-
+	
+	/* If thread_mlfqs is true, calculate the load_avg, recent_cpu, and priority */
   if(thread_mlfqs){
-  	int64_t ticks=timer_ticks();
+  	int64_t cur_ticks=timer_ticks();
 		struct list_elem *e;
+
+		//Ban the interrupt.
 		enum intr_level old_level;
 		old_level = intr_disable();
+	
+  	t->recent_cpu=add_FP_to_FP(t->recent_cpu,int_to_FP(1));// Every interrupts increasing current thread's recent_cpu value.
 
-  	t->recent_cpu=add_FP_to_FP(t->recent_cpu,int_to_FP(1));
-
-		if(ticks % TIMER_FREQ == 0){
+		if(cur_ticks % TIMER_FREQ == 0){//Every 1 sec
 			int ready_threads=0;
 			int double_load_avg;
 			int recent_cpu;
 
+			//Count the ready_threads.
 			for(e=list_begin(&all_list);
 					e!=list_end(&all_list);
 					e=list_next(e)){
@@ -176,11 +186,13 @@ thread_tick (void)
 					&&(pthread->status==THREAD_READY || pthread->status==THREAD_RUNNING))
 					ready_threads++;
 			}
-
+			
+			//Calculate load_avg.
 			load_avg=mul_FP_to_FP(div_FP_to_FP(int_to_FP(59),int_to_FP(60)),load_avg);
 			load_avg=add_FP_to_FP(load_avg,mul_FP_to_FP(div_FP_to_FP(int_to_FP(1),int_to_FP(60)),int_to_FP(ready_threads)));
 			double_load_avg=mul_FP_to_FP(load_avg,int_to_FP(2));
 			
+			//Caculate recent_cpu.
 			for(e=list_begin(&all_list);e!=list_end(&all_list);
 					e=list_next(e)){
 				struct thread *pthread=list_entry(e,struct thread,allelem);
@@ -190,7 +202,9 @@ thread_tick (void)
 			}
 		}
 
-		if(ticks % TIME_SLICE == 0){
+		if(cur_ticks % TIME_SLICE == 0){//Every 4 ticks
+
+			//Calculate priority.
 			for(e=list_begin(&all_list);e!=list_end(&all_list);
 					e=list_next(e)){
 				struct thread *pthread=list_entry(e,struct thread,allelem);
@@ -214,6 +228,8 @@ thread_tick (void)
 
 #ifndef USERPROG
    /*proj3*/
+   /* Check the thread_prior_aging flag,
+   		if it is true, Call thread_aging. */
    if(thread_prior_aging == true)
    	 thread_aging();
 #endif
@@ -299,6 +315,8 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 	
+	/*proj3*/
+	/*If the new thread can preempt because of highest priority, Reschedule. */
   thread_yield();
 
   return tid;
@@ -338,7 +356,7 @@ thread_unblock (struct thread *t)
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
   //list_push_back (&ready_list, &t->elem);
-  list_insert_ordered(&ready_list,&t->elem,cmp_priority_thread,0);
+  list_insert_ordered(&ready_list,&t->elem,cmp_priority_thread,0);	//Change for priortity scheduling.
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -434,7 +452,7 @@ thread_yield (void)
   old_level = intr_disable ();
   if (cur != idle_thread) 
     //list_push_back (&ready_list, &cur->elem);
-    list_insert_ordered(&ready_list,&cur->elem, cmp_priority_thread,0);
+    list_insert_ordered(&ready_list,&cur->elem, cmp_priority_thread,0); //Change for priority schedule.
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -476,7 +494,6 @@ thread_get_priority (void)
 void
 thread_set_nice (int nice UNUSED) 
 {
-  /* Not yet implemented. */
   thread_current()->nice=nice;
 }
 
@@ -484,7 +501,6 @@ thread_set_nice (int nice UNUSED)
 int
 thread_get_nice (void) 
 {
-  /* Not yet implemented. */
   return thread_current ()->nice;
 }
 
@@ -492,7 +508,6 @@ thread_get_nice (void)
 int
 thread_get_load_avg (void) 
 {
-  /* Not yet implemented. */
   return FP_to_int(mul_FP_to_FP(load_avg,int_to_FP(100)));
 }
 
@@ -500,7 +515,6 @@ thread_get_load_avg (void)
 int
 thread_get_recent_cpu (void) 
 {
-  /* Not yet implemented. */
   return FP_to_int(mul_FP_to_FP(thread_current()->recent_cpu,int_to_FP(100)));
 }
 
@@ -598,7 +612,10 @@ init_thread (struct thread *t, const char *name, int priority)
 	sema_init(&t->sema_elim,0);
 
 	list_init(&t->child_tlist);
-	
+
+	/*proje3*/
+	/*Check the thread is initial_thread, and if it is not an initial_thread,
+		inherit 'nice', 'recent_cpu' from parent thread. */
 	if(t!=initial_thread){
 		t->nice=thread_current()->nice;
 		t->recent_cpu=thread_current()->recent_cpu;
@@ -747,6 +764,11 @@ thread_get_child(tid_t tid){
 	return NULL;
 }
 
+/* proj3 */
+/*
+	----------ADDED FUNCTION----------
+	Block the current thread until the wake_up_tick, Set the thread's
+	wake_up_tick and insert the thread into sleeping_list. */
 void 
 thread_sleep(int64_t wake_up_tick){
 	struct thread *tc=thread_current();
@@ -755,6 +777,10 @@ thread_sleep(int64_t wake_up_tick){
 	list_insert_ordered(&sleeping_list,&tc->elem,cmp_sleeping_thread,NULL);
 	thread_block();
 }
+/*
+  ----------ADDED FUNCTION----------
+  Unblock the threads that passed the wake_up_tick. To find them,
+  Search from the sleeping list. */
 
 void thread_wake_up(int64_t now_tick){
 		
@@ -762,13 +788,18 @@ void thread_wake_up(int64_t now_tick){
 		struct list_elem *e=list_front(&sleeping_list);
 		struct thread *t=list_entry(e,struct thread,elem);
 
-		if(now_tick>=t->wake_up_tick){
-			list_pop_front(&sleeping_list);
-			thread_unblock(t);
+		if(now_tick<t->wake_up_tick){
+			break;
 		}
-		else break;
+		list_pop_front(&sleeping_list);
+		thread_unblock(t);
+
 	}
 }
+
+/*
+  ----------ADDED FUNCTION----------
+  Function to use to sort sleeping list with thread's wake_up_tick. */
 
 static bool 
 cmp_sleeping_thread(const struct list_elem* a,const struct list_elem* b,void * aux UNUSED){
@@ -780,9 +811,14 @@ cmp_sleeping_thread(const struct list_elem* a,const struct list_elem* b,void * a
 	return t_b->wake_up_tick>t_a->wake_up_tick; 
 }
 
+/*
+	----------ADDED FUNCTION----------
+	Function to use to sort ready list with thread's priority. */
+
 bool 
 cmp_priority_thread(const struct list_elem *a,const struct list_elem *b,void * aux UNUSED){
 	struct thread *t_a,*t_b;
+
 	t_a=list_entry(a,struct thread,elem);
 	t_b=list_entry(b,struct thread,elem);
 
@@ -790,12 +826,18 @@ cmp_priority_thread(const struct list_elem *a,const struct list_elem *b,void * a
 }
 
 #ifndef USERPROG
+/*
+  ----------ADDED FUNCTION----------
+  To prevent starvation problem in priority scheduling, we support
+  the aging method. Every regular intervals, increase the thread's
+  priority in ready list. */
 static void
 thread_aging(void){
 
 	aging_ticks++;
 
-	if(thread_prior_aging==true && aging_ticks==TIME_SLICE*100){
+	if(thread_prior_aging==true
+		 && aging_ticks==TIME_SLICE*100){
 		struct list_elem *e;
 
 		for(e=list_begin(&ready_list);

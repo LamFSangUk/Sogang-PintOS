@@ -8,6 +8,9 @@
 
 #ifndef USERPROG
 /*proj3*/
+/* If false (default), it doesn't use aging method.
+   If true, use aging method to priority scheduling to prevent starvation.
+   Controlled by kernel command-line option -o aging". */
 extern bool thread_prior_aging;
 #endif
 
@@ -167,7 +170,7 @@ int thread_get_load_avg (void);
 //Added Function
 struct thread* thread_get_child(tid_t);
 
-//proj3
+/*proj3*/
 void thread_sleep(int64_t wake_up_tick);
 void thread_wake_up(int64_t now_tick);
 bool cmp_priority_thread(const struct list_elem*,const struct list_elem*,void *);
