@@ -179,14 +179,8 @@ thread_tick (void)
 			int recent_cpu;
 
 			//Count the ready_threads.
-			for(e=list_begin(&all_list);
-					e!=list_end(&all_list);
-					e=list_next(e)){
-				struct thread *pthread = list_entry(e,struct thread,allelem);
-				if(pthread!=idle_thread
-						&&(pthread->status==THREAD_READY || pthread->status==THREAD_RUNNING))
-					ready_threads++;
-			}
+			ready_threads=list_size(&ready_list);
+			if(t!=idle_thread) ready_threads++;
 
 			//Calculate load_avg.
 			load_avg=mul_FP_to_FP(div_FP_to_FP(int_to_FP(59),int_to_FP(60)),load_avg);
@@ -496,30 +490,7 @@ thread_get_priority (void)
 void
 thread_set_nice (int nice UNUSED) 
 {
-	enum intr_level old_level;
-	int double_load_avg;
-	int recent_cpu;
-	int priority;
-
-	old_level=intr_disable();
-
   thread_current()->nice=nice;
-
-  double_load_avg=mul_FP_to_FP(load_avg,int_to_FP(2));
-	recent_cpu=div_FP_to_FP(double_load_avg,add_FP_to_FP(double_load_avg,int_to_FP(1)));
-	recent_cpu=mul_FP_to_FP(recent_cpu,thread_current()->recent_cpu);
-	thread_current()->recent_cpu=add_FP_to_FP(recent_cpu,int_to_FP(thread_current()->nice));
-
-	priority=int_to_FP(PRI_MAX);
-	priority=sub_FP_to_FP(priority,div_FP_to_FP(thread_current()->recent_cpu,int_to_FP(4)));
-	priority=sub_FP_to_FP(priority,int_to_FP(thread_current()->nice*2));
-	priority=FP_to_int(priority);
-	if(priority>PRI_MAX) priority=PRI_MAX;
-	if(priority<PRI_MIN) priority=PRI_MIN;
-	thread_current()->priority=priority;
-
-  intr_set_level(old_level);
-
 }
 
 /* Returns the current thread's nice value. */
