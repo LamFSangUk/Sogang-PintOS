@@ -10,6 +10,12 @@ FP_to_int(int decimal){
 	return decimal / NUM_1;
 }
 
+int
+FP_to_int_round_off(int decimal){
+	if(decimal>=0) return (decimal+NUM_1/2)/NUM_1;
+	else return (decimal-NUM_1/2)/NUM_1;
+}
+
 int 
 add_FP_to_FP(int dec_a,int dec_b){
 	return dec_a+dec_b;

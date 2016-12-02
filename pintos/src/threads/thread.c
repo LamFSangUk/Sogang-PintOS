@@ -179,8 +179,14 @@ thread_tick (void)
 			int recent_cpu;
 
 			//Count the ready_threads.
-			ready_threads=list_size(&ready_list);
-			if(t!=idle_thread) ready_threads++;
+			for(e=list_begin(&all_list);e!=list_end(&all_list);
+					e=list_next(e)){
+				struct thread *pthread=list_entry(e,struct thread,allelem);
+				if(pthread!=idle_thread &&
+					 (pthread->status==THREAD_READY || pthread->status==THREAD_RUNNING))
+					ready_threads++;
+			}
+			//if(t!=idle_thread) ready_threads++;
 
 			//Calculate load_avg.
 			load_avg=mul_FP_to_FP(div_FP_to_FP(int_to_FP(59),int_to_FP(60)),load_avg);
@@ -206,7 +212,7 @@ thread_tick (void)
 				int priority=int_to_FP(PRI_MAX);
 				priority=sub_FP_to_FP(priority,div_FP_to_FP(pthread->recent_cpu,int_to_FP(4)));
 				priority=sub_FP_to_FP(priority,int_to_FP(pthread->nice*2));
-				priority=FP_to_int(priority);
+				priority=FP_to_int_round_off(priority);
 				if(priority>PRI_MAX) priority=PRI_MAX;
 				if(priority<PRI_MIN) priority=PRI_MIN;
 				pthread->priority=priority;
@@ -504,14 +510,14 @@ thread_get_nice (void)
 int
 thread_get_load_avg (void) 
 {
-  return FP_to_int(mul_FP_to_FP(load_avg,int_to_FP(100)));
+  return FP_to_int_round_off(mul_FP_to_FP(load_avg,int_to_FP(100)));
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) 
 {
-  return FP_to_int(mul_FP_to_FP(thread_current()->recent_cpu,int_to_FP(100)));
+  return FP_to_int_round_off(mul_FP_to_FP(thread_current()->recent_cpu,int_to_FP(100)));
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
