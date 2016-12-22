@@ -6,6 +6,8 @@
 #include <stdint.h>
 #include "threads/synch.h"
 
+#include <hash.h>
+
 #ifndef USERPROG
 /*proj3*/
 /* If false (default), it doesn't use aging method.
@@ -129,6 +131,8 @@ struct thread
 		int64_t wake_up_tick;
 		int nice;
 		int recent_cpu;
+
+		struct hash vm;
   };
 
 /* If false (default), use round-robin scheduler.

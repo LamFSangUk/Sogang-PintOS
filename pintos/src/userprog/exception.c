@@ -7,6 +7,8 @@
 
 #include "threads/vaddr.h"
 #include "userprog/syscall.h"
+
+#include "vm/page.h"
 /* Number of page faults processed. */
 static long long page_fault_cnt;
 
@@ -150,16 +152,32 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 	
-	syscall_exit(-1);
+	//syscall_exit(-1);
+	struct vm_entry *vme;
+	if(!not_present)
+		syscall_exit(-1);
+	vme=find_vme(fault_addr);
+	if(!vme){
+		if(!verify_stack ((int32_t) fault_addr,f->esp))
+			syscall_exit(-1);
+
+		expand_stack(fault_addr);
+		return;
+	}
+	if(!handle_mm_fault(vme))
+		syscall_exit(-1);
 
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
-  printf ("Page fault at %p: %s error %s page in %s context.\n",
-          fault_addr,
-          not_present ? "not present" : "rights violation",
-          write ? "writing" : "reading",
-          user ? "user" : "kernel");
-  kill (f);
+//  printf ("Page fault at %p: %s error %s page in %s context.\n",
+//          fault_addr,
+//          not_present ? "not present" : "rights violation",
+//          write ? "writing" : "reading",
+//          user ? "user" : "kernel");
+//  kill (f);
 }
 
+bool verify_stack(int32_t addr, int32_t esp){
+	return is_user_vaddr(addr) && esp-addr<=32 && 0xC0000000UL-addr<=8*1024*1024;
+}

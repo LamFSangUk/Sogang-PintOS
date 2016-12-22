@@ -25,6 +25,9 @@
 #include "threads/malloc.h"
 #include "userprog/syscall.h"
 
+#include "vm/page.h"
+#include "vm/swap.h"
+
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 extern struct lock _lock_for_file;
@@ -230,6 +233,8 @@ process_exit (void)
 		file_close(cur->fd_tab[cur->fd_num]);
 
 	file_close(cur->exec_file);
+
+	vm_destroy(&cur->vm);	
 
 	/* Destroy the current process's page directory and switch back
 		 to the kernel-only page directory. */
@@ -554,30 +559,46 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 		size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-		/* Get a page of memory. */
-		uint8_t *knpage = palloc_get_page(PAL_USER);
-		if (knpage == NULL)
-			return false;
+		struct vm_entry *vme = (struct vm_entry *)malloc(sizeof(struct vm_entry));
+		if(vme==NULL) return false;
 
-		/* Load this page. */
-		if (file_read(file, knpage, page_read_bytes) != (int)page_read_bytes)
-		{
-			palloc_free_page(knpage);
-			return false;
-		}
-		memset(knpage + page_read_bytes, 0, page_zero_bytes);
+		memset(vme,0,sizeof(struct vm_entry));
+		vme->type=VM_BIN;
+		vme->file=file;
+		vme->offset=ofs;
+		vme->read_bytes=page_read_bytes;
+		vme->zero_bytes=page_zero_bytes;
+		vme->writable=writable;
+		vme->vaddr=upage;
 
-		/* Add the page to the process's address space. */
-		if (!install_page(upage, knpage, writable))
-		{
-			palloc_free_page(knpage);
-			return false;
-		}
+		insert_vme(&thread_current()->vm,vme);
+
+//		/* Get a page of memory. */
+//		uint8_t *knpage = palloc_get_page(PAL_USER);
+//		if (knpage == NULL)
+//			return false;
+//
+//		/* Load this page. */
+//		if (file_read(file, knpage, page_read_bytes) != (int)page_read_bytes)
+//		{
+//			palloc_free_page(knpage);
+//			return false;
+//		}
+//		memset(knpage + page_read_bytes, 0, page_zero_bytes);
+
+//		/* Add the page to the process's address space. */
+//		if (!install_page(upage, knpage, writable))
+//		{
+//			palloc_free_page(knpage);
+//			return false;
+//		}
 
 		/* Advance. */
 		read_bytes -= page_read_bytes;
 		zero_bytes -= page_zero_bytes;
 		upage += PGSIZE;
+
+		ofs+=page_read_bytes;
 	}
 	return true;
 }
@@ -587,19 +608,44 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack (void **esp) 
 {
-  uint8_t *kpage;
-  bool success = false;
+//  uint8_t *kpage;
+//  bool success = false;
+	struct page *kpage;
+	void *upage = ((uint8_t*)PHYS_BASE)-PGSIZE;
 
-  kpage = palloc_get_page (PAL_USER | PAL_ZERO);
+	struct vm_entry *vme=(struct vm_entry *)malloc(sizeof(struct vm_entry));
+	if(vme==NULL)
+		return false;
+
+  kpage = alloc_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
     {
-      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-      if (success)
-        *esp = PHYS_BASE-12;
-      else
-        palloc_free_page (kpage);
-    }
-  return success;
+    	kpage->vme=vme;
+    	add_page_to_lru_list(kpage);
+
+    	if(!install_page(upage,kpage->kaddr,true)){
+    		free_page_kaddr(kpage);
+    		free(vme);
+    		return false;
+			}
+			*esp=PHYS_BASE;
+
+			memset(kpage->vme,0,sizeof(struct vm_entry));
+			kpage->vme->type = VM_ANON;
+			kpage->vme->vaddr=upage;
+			kpage->vme->writable=true;
+			kpage->vme->is_loaded=true;
+
+			insert_vme(&thread_current()->vm,kpage->vme);
+		}
+		return true;
+//      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
+//      if (success)
+//        *esp = PHYS_BASE-12;
+//      else
+//        palloc_free_page (kpage);
+//    }
+//  return success;
 }
 
 /* Adds a mapping from user virtual address UPAGE to kernel
@@ -620,4 +666,77 @@ install_page (void *upage, void *kpage, bool writable)
      address, then map our page there. */
   return (pagedir_get_page (th->pagedir, upage) == NULL
           && pagedir_set_page (th->pagedir, upage, kpage, writable));
+}
+
+bool
+handle_mm_fault(struct vm_entry *vme){
+	struct page *kpage;
+	kpage = alloc_page (PAL_USER);
+	ASSERT (kpage != NULL);
+	ASSERT (pg_ofs (kpage->kaddr) == 0);
+	ASSERT (vme != NULL);
+	kpage->vme = vme;
+
+	switch (vme->type)
+	{
+		case VM_BIN:
+		case VM_FILE:
+			if (!load_file (kpage->kaddr, vme) ||
+					!install_page (vme->vaddr, kpage->kaddr, vme->writable))
+			{
+				NOT_REACHED ();
+				free_page_kaddr (kpage);
+				return false;
+			}
+			vme->is_loaded = true;
+			add_page_to_lru_list (kpage);
+			return true;
+		case VM_ANON:
+			swap_in (vme->swap_slot, kpage->kaddr);
+			ASSERT (pg_ofs (kpage->kaddr) == 0);
+			if (!install_page (vme->vaddr, kpage->kaddr, vme->writable))
+			{
+				NOT_REACHED ();
+				free_page_kaddr (kpage);
+				return false; 
+			}
+			vme->is_loaded = true;
+			add_page_to_lru_list (kpage);
+			return true;
+		default:
+			NOT_REACHED ();
+	}
+}
+
+void
+expand_stack (void *addr)
+{
+	struct page *kpage;
+	void *upage = pg_round_down (addr);
+
+	struct vm_entry *vme = (struct vm_entry *)malloc(sizeof(struct vm_entry));
+	if (vme == NULL)
+		return false;
+
+	kpage = alloc_page (PAL_USER | PAL_ZERO);
+	if (kpage != NULL)
+	{
+		kpage->vme = vme;
+		add_page_to_lru_list (kpage);
+
+		if (!install_page (upage, kpage->kaddr, true))
+		{
+			free_page_kaddr (kpage);
+			free (vme);
+			return false;
+		}
+
+		memset (kpage->vme, 0, sizeof (struct vm_entry));
+		kpage->vme->type = VM_ANON;
+		kpage->vme->vaddr = upage;
+		kpage->vme->writable = true;
+		kpage->vme->is_loaded = true;
+
+		insert_vme (&thread_current ()->vm, kpage->vme);
+	}
 }

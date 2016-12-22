@@ -313,6 +313,8 @@ thread_create (const char *name, int priority,
 	/*Added-kny 2016.11.13*/
 	t->fd_num=2;
 	list_push_back(&thread_current()->child_tlist,&t->child_elem);
+	
+	vm_init(&t->vm);
 
   /* Add to run queue. */
   thread_unblock (t);
