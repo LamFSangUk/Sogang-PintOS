@@ -33,7 +33,7 @@ static int syscall_write (int fd_num, const void *buffer, unsigned size);
 static int syscall_fibonacci(int n);
 static int syscall_sum_of_four_integers(int,int ,int,int);
 
-static bool is_valid_userptr(const void* ptr);
+static bool is_valid_userptr(const void* ptr,void* esp);
 /*na-11.09 Add functions and struct*/
 /*PROJECT2_2*/
 static bool syscall_create (const char * file, unsigned init_size);
@@ -76,7 +76,7 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
 	int syscallnum;
 	int* argu;
  
-	if(!is_valid_userptr((const void*)(f->esp))){
+	if(!is_valid_userptr((const void*)(f->esp),f->esp)){
 		syscall_exit(-1);
 		
 		return;
@@ -90,7 +90,7 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
     syscall_halt();
   }
   else if (syscallnum == SYS_EXIT){
-  	if(!is_valid_userptr((const void*)&argu[1])){
+  	if(!is_valid_userptr((const void*)&argu[1],f->esp)){
   		
   		syscall_exit(-1);
   		
@@ -100,7 +100,7 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
   	f->eax=syscall_exit(argu[1]);
   }
   else if (syscallnum == SYS_EXEC){
-  	if(!is_valid_userptr((const void*)&argu[1])){
+  	if(!is_valid_userptr((const void*)&argu[1],f->esp)){
   		
   		syscall_exit(-1);
   	  
@@ -110,7 +110,7 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
 		f->eax=syscall_exec((const char*)argu[1]);
   }
   else if (syscallnum == SYS_WAIT){
-  	if(!is_valid_userptr((const void*)&argu[1])){
+  	if(!is_valid_userptr((const void*)&argu[1],f->esp)){
   		
   		syscall_exit(-1);
   	  
@@ -120,9 +120,9 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
 		f->eax=syscall_wait((int)argu[1]);
   }
   else if (syscallnum== SYS_READ){
-		if(!is_valid_userptr((const void*)&argu[1])
-		   || !is_valid_userptr((const void*)&argu[2]) 
-		   || !is_valid_userptr((const void*)&argu[3])){
+		if(!is_valid_userptr((const void*)&argu[1],f->esp)
+		   || !is_valid_userptr((const void*)&argu[2],f->esp) 
+		   || !is_valid_userptr((const void*)&argu[3],f->esp)){
 			
 			syscall_exit(-1);
 			
@@ -132,9 +132,9 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
 		f->eax=syscall_read((int)argu[1],(void*)argu[2],(unsigned)argu[3]);
   }
   else if (syscallnum== SYS_WRITE){
-		if(!is_valid_userptr((const void*)&argu[1])
-				|| !is_valid_userptr((const void*)&argu[2])
-				|| !is_valid_userptr((const void*)&argu[3])){
+		if(!is_valid_userptr((const void*)&argu[1],f->esp)
+				|| !is_valid_userptr((const void*)&argu[2],f->esp)
+				|| !is_valid_userptr((const void*)&argu[3],f->esp)){
 			
 			syscall_exit(-1);
 			
@@ -144,7 +144,7 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
 		f->eax=syscall_write((int)argu[1],(const void*)argu[2],(unsigned)argu[3]);
   }
   else if(syscallnum==SYS_FIBO){
-  	if(!is_valid_userptr((const void*)&argu[1])){
+  	if(!is_valid_userptr((const void*)&argu[1],f->esp)){
 			
 			syscall_exit(-1);
 			
@@ -154,10 +154,10 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
   	f->eax=syscall_fibonacci((int)argu[1]);
   }
   else if(syscallnum==SYS_SUM4){
-  	if(!is_valid_userptr((const void*)&argu[1])
-  			|| !is_valid_userptr((const void*)&argu[2])
-  	  	|| !is_valid_userptr((const void*)&argu[3])
-  	  	|| !is_valid_userptr((const void*)&argu[4])){
+  	if(!is_valid_userptr((const void*)&argu[1],f->esp)
+  			|| !is_valid_userptr((const void*)&argu[2],f->esp)
+  	  	|| !is_valid_userptr((const void*)&argu[3],f->esp)
+  	  	|| !is_valid_userptr((const void*)&argu[4],f->esp)){
   	  
   	  syscall_exit(-1);
   	  
@@ -170,8 +170,8 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
 	/*Added -kny 2016.11.12 */
 	/*proj2-2*/
   else if(syscallnum==SYS_CREATE){
-    if(!is_valid_userptr((const void*)&argu[1])
-    		|| !is_valid_userptr((const void*)&argu[2])){
+    if(!is_valid_userptr((const void*)&argu[1],f->esp)
+    		|| !is_valid_userptr((const void*)&argu[2],f->esp)){
 			
 			syscall_exit(-1);
 			
@@ -181,7 +181,7 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
   	f->eax=syscall_create((const char *)argu[1],(unsigned)argu[2]);
   }
   else if(syscallnum==SYS_REMOVE){
-		if(!is_valid_userptr((const void*)&argu[1])){
+		if(!is_valid_userptr((const void*)&argu[1],f->esp)){
 			
 			syscall_exit(-1);
 			
@@ -191,7 +191,7 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
 		f->eax=syscall_remove((const char *)argu[1]);
   }
   else if(syscallnum==SYS_OPEN){
-  	if(!is_valid_userptr((const void*)&argu[1])){
+  	if(!is_valid_userptr((const void*)&argu[1],f->esp)){
 			
 			syscall_exit(-1);
 			
@@ -201,7 +201,7 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
   	f->eax=syscall_open((const char *)argu[1]);
 	}
   else if(syscallnum==SYS_CLOSE){
-  	if(!is_valid_userptr((const void*)&argu[1])){
+  	if(!is_valid_userptr((const void*)&argu[1],f->esp)){
 			
 			syscall_exit(-1);
 			
@@ -211,7 +211,7 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
   	syscall_close((int)argu[1]);
 	}
   else if(syscallnum==SYS_FILESIZE){
-  	if(!is_valid_userptr((const void*)&argu[1])){
+  	if(!is_valid_userptr((const void*)&argu[1],f->esp)){
 			
 			syscall_exit(-1);
 			
@@ -221,8 +221,8 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
   	f->eax=syscall_filesize((int)argu[1]);
 	}
   else if(syscallnum==SYS_SEEK){
-  	if(!is_valid_userptr((const void*)&argu[1])
-     		|| !is_valid_userptr((const void*)&argu[2])){
+  	if(!is_valid_userptr((const void*)&argu[1],f->esp)
+     		|| !is_valid_userptr((const void*)&argu[2],f->esp)){
 			
 			syscall_exit(-1);
 			
@@ -232,7 +232,7 @@ syscall_handler (struct intr_frame *f UNUSED) //intr_frame : src/threads/interru
   	syscall_seek((int)argu[1],(unsigned)argu[2]);
   }
   else if(syscallnum==SYS_TELL){
- 		if(!is_valid_userptr((const void*)&argu[1])){
+ 		if(!is_valid_userptr((const void*)&argu[1],f->esp)){
 		
 			syscall_exit(-1);
 		
@@ -441,12 +441,20 @@ syscall_sum_of_four_integers(int _para_1, int _para_2, int _para_3, int _para_4)
 	defend it. Cause if user can correct kernel's memory,
 	the operating system program will not correctly work.		*/
 
-static bool is_valid_userptr(const void* ptr){
+static bool is_valid_userptr(const void* ptr,void *esp){
 	if(ptr==NULL){
  		return false;
  	}
-	else
-		return is_user_vaddr(ptr) && ptr>=(void*)0x08048000UL;
+	else{
+		if(!(is_user_vaddr(ptr) && ptr>=(void*)0x08048000UL)){
+			return false;
+		}
+		if(!find_vme(ptr)){
+			if(!verify_stack((int32_t) ptr, (int32_t)esp))
+				return false;
+			expand_stack(ptr);
+		}
+	}
 }
 
 /*proj2-2*/

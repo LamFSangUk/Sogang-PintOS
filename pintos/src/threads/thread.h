@@ -132,7 +132,8 @@ struct thread
 		int nice;
 		int recent_cpu;
 
-		struct hash vm;
+		struct hash sup_page_tab;				/*proj3 vm. supplemental page table */
+																		/*To Handle page fault*/
   };
 
 /* If false (default), use round-robin scheduler.

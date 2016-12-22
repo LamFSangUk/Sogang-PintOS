@@ -8,6 +8,8 @@
 #include "threads/vaddr.h"
 #include "userprog/syscall.h"
 
+//proj3 vm
+#include "userprog/process.h"
 #include "vm/page.h"
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -154,9 +156,9 @@ page_fault (struct intr_frame *f)
 	
 	//syscall_exit(-1);
 	struct vm_entry *vme;
-	if(!not_present)
+	if(!not_present)//case: writing r/o page.
 		syscall_exit(-1);
-	vme=find_vme(fault_addr);
+	vme=find_vme(fault_addr);//Find the Fault Addr's page in sup_page_tab.
 	if(!vme){
 		if(!verify_stack ((int32_t) fault_addr,f->esp))
 			syscall_exit(-1);

@@ -13,6 +13,7 @@
 #include "threads/vaddr.h"
 #ifdef USERPROG
 #include "userprog/process.h"
+#include "vm/page.h"
 #endif
 #include "lib/kernel/arith_fp.h"
 #include "devices/timer.h"
@@ -314,7 +315,7 @@ thread_create (const char *name, int priority,
 	t->fd_num=2;
 	list_push_back(&thread_current()->child_tlist,&t->child_elem);
 	
-	vm_init(&t->vm);
+	spt_init(&t->sup_page_tab);
 
   /* Add to run queue. */
   thread_unblock (t);
