@@ -16,6 +16,8 @@
 #include "filesys/filesys.h"
 #include "filesys/file.h"
 
+#include "vm/page.h"
+
 #define STDIN 0
 #define STDOUT 1
 

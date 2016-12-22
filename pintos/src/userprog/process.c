@@ -628,7 +628,7 @@ setup_stack (void **esp)
     		free(vme);
     		return false;
 			}
-			*esp=PHYS_BASE;
+			*esp=PHYS_BASE-12;
 
 			memset(kpage->vme,0,sizeof(struct vm_entry));
 			kpage->vme->type = VM_ANON;
