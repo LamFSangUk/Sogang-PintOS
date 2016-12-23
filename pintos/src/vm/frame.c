@@ -5,42 +5,46 @@
 #include "threads/interrupt.h"
 #include "threads/vaddr.h"
 
-static struct list_elem *get_next_lru_clock (void);
+static struct list_elem *get_next_LRU_clock (void);
 
-struct list lru_list;
-struct lock lru_list_lock;
-struct list_elem *lru_clock;
+struct list list_LRU;
+struct lock list_LRU_lock;
+struct list_elem *LRU_clock;
 
-	void
-lru_list_init (void)
+void
+list_LRU_init (void)
 {
-	list_init (&lru_list);
-	lock_init (&lru_list_lock);
-	lru_clock = NULL;
+	LRU_clock = NULL;
+	lock_init (&list_LRU_lock);
+	list_init (&list_LRU);
 }
 
-	void
-add_page_to_lru_list (struct page *page)
+void
+add_page_to_list_LRU (struct page *page)
 {
-	lock_acquire (&lru_list_lock);  
+	lock_acquire (&list_LRU_lock);  
+
 	ASSERT(page->thread);
 	ASSERT(page->thread->magic==0xcd6abf4b);
-	list_push_back (&lru_list, &page->lru);
-	lock_release (&lru_list_lock);
+
+	list_push_back (&list_LRU, &page->LRU);
+
+	lock_release (&list_LRU_lock);
 }
 
-	struct page *
-find_page_from_lru_list (void *kaddr)
+struct page *
+find_page_from_list_LRU (void *kaddr)
 {
-	ASSERT(lock_held_by_current_thread(&lru_list_lock));
+	ASSERT(lock_held_by_current_thread(&list_LRU_lock));
 	ASSERT (pg_ofs (kaddr) == 0);
 
 	struct list_elem *e;
-	for (e = list_begin (&lru_list);
-			e != list_end (&lru_list);
-			e = list_next (e))
-	{
-		struct page *page = list_entry (e, struct page, lru);
+
+	for (e = list_begin (&list_LRU);
+			e != list_end (&list_LRU);
+			e = list_next (e)){
+
+		struct page *page = list_entry (e, struct page, LRU);
 		ASSERT(page);
 		if (page->kaddr == kaddr)	
 			return page; 
@@ -49,50 +53,52 @@ find_page_from_lru_list (void *kaddr)
 	return NULL;
 }
 
-	void
-del_page_from_lru_list (struct page *page)
+void
+del_page_from_list_LRU (struct page *page)
 {
-	ASSERT (lock_held_by_current_thread (&lru_list_lock));
+	ASSERT (lock_held_by_current_thread (&list_LRU_lock));
 	ASSERT (page);
-	if (lru_clock == &page->lru)
+	if (LRU_clock == &page->LRU)
 	{
-		lru_clock = list_remove (lru_clock);
+		LRU_clock = list_remove (LRU_clock);
 	}
 	else
 	{
-		list_remove (&page->lru);
+		list_remove (&page->LRU);
 	}
 }
 
-	static struct list_elem *
-get_next_lru_clock (void)
+static struct list_elem *
+get_next_LRU_clock (void)
 {
-	ASSERT (lock_held_by_current_thread (&lru_list_lock));
-	if (lru_clock == NULL || lru_clock == list_end (&lru_list)){
-		if (list_empty (&lru_list))
+	ASSERT (lock_held_by_current_thread (&list_LRU_lock));
+	if (LRU_clock == NULL || LRU_clock == list_end (&list_LRU)){
+		if (list_empty (&list_LRU))
 			return NULL;
-		else
-			return (lru_clock = list_begin (&lru_list));
+		else{
+			LRU_clock=list_begin(&list_LRU);
+			return LRU_clock;
+		}
 	}
 	
-	lru_clock = list_next (lru_clock);
-	if (lru_clock == list_end (&lru_list))
-		return get_next_lru_clock ();
+	LRU_clock = list_next (LRU_clock);
+	if (LRU_clock == list_end (&list_LRU))
+		return get_next_LRU_clock ();
 
-	return lru_clock;
+	return LRU_clock;
 }
 
-	struct page *
+struct page *
 get_victim (void)
 {
 	struct page *page;
 	struct list_elem *e;
 
-	ASSERT (lock_held_by_current_thread (&lru_list_lock));
+	ASSERT (lock_held_by_current_thread (&list_LRU_lock));
 
-	e = get_next_lru_clock ();
+	e = get_next_LRU_clock ();
 	ASSERT (e != NULL);
-	page = list_entry (e, struct page, lru);
+	page = list_entry (e, struct page, LRU);
 	ASSERT (page);
 	ASSERT (page->thread);
 	ASSERT (page->thread->magic == 0xcd6abf4b);
@@ -101,9 +107,9 @@ get_victim (void)
 	while (pagedir_is_accessed (page->thread->pagedir, page->pge->vaddr))
 	{
 		pagedir_set_accessed (page->thread->pagedir, page->pge->vaddr, false);
-		e = get_next_lru_clock ();
+		e = get_next_LRU_clock ();
 		ASSERT (e != NULL);
-		page = list_entry (e, struct page, lru);
+		page = list_entry (e, struct page, LRU);
 		ASSERT (page);
 		ASSERT (page->thread);
 		ASSERT (page->thread->magic == 0xcd6abf4b);

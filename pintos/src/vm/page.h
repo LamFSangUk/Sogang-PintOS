@@ -9,7 +9,7 @@
 #include "filesys/file.h"
 #include "threads/palloc.h"
 
-extern struct lock lru_list_lock;
+extern struct lock list_LRU_lock;
 
 enum vm_type
 {
@@ -22,7 +22,7 @@ struct page
 	void *kaddr;
 	struct page_entry *pge;
 	struct thread *thread;
-	struct list_elem lru;
+	struct list_elem LRU;
 };
 
 struct page_entry
@@ -44,7 +44,6 @@ void spt_destroy (struct hash *);
 
 struct page_entry *get_pge (void *vaddr);
 bool insert_pge (struct hash *, struct page_entry *);
-bool delete_vme (struct hash *, struct page_entry *);
 
 bool load_file (void *kaddr, struct page_entry *);
 

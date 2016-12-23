@@ -119,7 +119,7 @@ main (void)
 #endif
 
 	swap_init(8*1024);
-	lru_list_init();
+	list_LRU_init();
 
   /* Start thread scheduler and enable interrupts. */
   thread_start ();

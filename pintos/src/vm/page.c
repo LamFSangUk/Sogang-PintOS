@@ -78,38 +78,24 @@ insert_pge (struct hash *spt, struct page_entry *pge)
 }
 
 bool
-delete_vme (struct hash *spt, struct page_entry *vme)
-{
-	ASSERT (spt != NULL);
-	ASSERT (vme != NULL);
-	if(hash_delete(spt,&vme->elem)){
-		swap_clear(vme->swap_slot);	
-		free_page_vaddr(vme->vaddr);
-		free(vme);
-		return true;
-	}
-	else return false;
-}
-
-bool
-load_file (void *kaddr, struct page_entry *vme)
+load_file (void *kaddr, struct page_entry *pge)
 {
 	ASSERT (kaddr != NULL);
-	ASSERT (vme != NULL);
-	ASSERT (vme->type == VM_BIN);
+	ASSERT (pge != NULL);
+	ASSERT (pge->type == VM_BIN);
 
-	if (file_read_at (vme->file, kaddr, vme->read_bytes, vme->offset) != (int)vme->read_bytes)
+	if (file_read_at (pge->file, kaddr, pge->read_bytes, pge->offset) != (int)pge->read_bytes)
 	{
 		return false;
 	}
-	memset (kaddr + vme->read_bytes, 0, vme->zero_bytes);
+	memset (kaddr + pge->read_bytes, 0, pge->zero_bytes);
 	return true;
 }
 
 static void
-collect (void)
+replacement_mem (void)
 {
-	lock_acquire (&lru_list_lock);
+	lock_acquire (&list_LRU_lock);
 	
 	struct page *vict_page = get_victim ();
 
@@ -137,7 +123,7 @@ collect (void)
 	}
 	vict_page->pge->is_loaded = false;
 	__free_page (vict_page);
-	lock_release (&lru_list_lock);
+	lock_release (&list_LRU_lock);
 }
 
 struct page *
@@ -156,27 +142,27 @@ alloc_page (enum palloc_flags flags)
 	page->kaddr = palloc_get_page (flags);
 	while (page->kaddr == NULL)
 	{
-		collect ();
+		replacement_mem ();
 		page->kaddr = palloc_get_page (flags);
 	}
 
 	return page;
 }
 
-extern struct list lru_list;
-extern struct list_elem *lru_clock;
+extern struct list list_LRU;
+extern struct list_elem *LRU_clock;
 
 void
 free_page_kaddr (void *kaddr)
 {
-	lock_acquire (&lru_list_lock);
+	lock_acquire (&list_LRU_lock);
 
-	struct page *page = find_page_from_lru_list (kaddr);
+	struct page *page = find_page_from_list_LRU (kaddr);
 	
 	if(page)
 		__free_page(page);
 
-	lock_release(&lru_list_lock);
+	lock_release(&list_LRU_lock);
 
 }
 
@@ -189,7 +175,7 @@ free_page_vaddr (void *vaddr)
 void
 __free_page (struct page *page)
 {
-	ASSERT (lock_held_by_current_thread (&lru_list_lock));
+	ASSERT (lock_held_by_current_thread (&list_LRU_lock));
 
 	ASSERT (page != NULL);
 	ASSERT (page->thread != NULL);
@@ -197,7 +183,7 @@ __free_page (struct page *page)
 	ASSERT (page->pge != NULL);
 
 	pagedir_clear_page (page->thread->pagedir, page->pge->vaddr);
-	del_page_from_lru_list (page);
+	del_page_from_list_LRU (page);
 	palloc_free_page (page->kaddr);
 	free (page);
 

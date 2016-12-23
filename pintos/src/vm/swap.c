@@ -8,14 +8,14 @@
 struct lock swap_lock;
 struct bitmap *swap_bitmap;
 
-	void
+void
 swap_init (size_t size)
 {
 	lock_init(&swap_lock);
 	swap_bitmap = bitmap_create (size);
 }
 
-	void
+void
 swap_in (size_t used_index, void *kaddr)
 {
 	if(used_index-- == 0)
@@ -38,7 +38,8 @@ swap_in (size_t used_index, void *kaddr)
 	lock_release (&swap_lock);
 }
 
-void swap_clear (size_t used_index)
+void 
+swap_clear (size_t used_index)
 {
 	if (used_index-- == 0)
 		return;
@@ -48,7 +49,7 @@ void swap_clear (size_t used_index)
 }
 
 
-	size_t
+size_t
 swap_out (void *kaddr)
 {
 	lock_acquire(&swap_lock);

@@ -621,7 +621,7 @@ setup_stack (void **esp)
   if (kpage != NULL) 
 	{
 			kpage->pge=pge;
-			add_page_to_lru_list(kpage);
+			add_page_to_list_LRU(kpage);
 
 			if(!install_page(upage,kpage->kaddr,true)){
 				free_page_kaddr(kpage);
@@ -695,7 +695,7 @@ handle_mm_fault(struct page_entry *pge){
 	}
 
 	pge->is_loaded=true;
-	add_page_to_lru_list(kpage);
+	add_page_to_list_LRU(kpage);
 	return true;
 }
 
@@ -713,7 +713,7 @@ stack_grow (void *addr)
 	if (kpage != NULL)
 	{
 		kpage->pge = pge;
-		add_page_to_lru_list (kpage);
+		add_page_to_list_LRU (kpage);
 
 		if (!install_page (upage, kpage->kaddr, true))
 		{
