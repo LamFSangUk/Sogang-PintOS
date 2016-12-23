@@ -14,7 +14,6 @@ extern struct lock lru_list_lock;
 enum vm_type
 {
 	VM_ANON,
-	VM_FILE,
 	VM_BIN
 };
 
@@ -32,7 +31,6 @@ struct vm_entry
 	void *vaddr;
 	bool writable;
 	bool is_loaded;
-	bool pinned;
 	struct file *file;
 	struct list_elem mmap_elem;
 	size_t offset;

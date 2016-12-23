@@ -452,7 +452,7 @@ static bool is_valid_userptr(const void* ptr,void *esp){
 		if(!find_vme(ptr)){
 			if(!is_valid_stack((int32_t) ptr, (int32_t)esp))
 				return false;
-			expand_stack(ptr);
+			stack_grow(ptr);
 			return true;
 		}
 	}

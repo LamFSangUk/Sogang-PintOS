@@ -163,7 +163,7 @@ page_fault (struct intr_frame *f)
 		if(!is_valid_stack ((int32_t) fault_addr,f->esp))
 			syscall_exit(-1);
 
-		expand_stack(fault_addr);
+		stack_grow(fault_addr);
 		return;
 	}
 

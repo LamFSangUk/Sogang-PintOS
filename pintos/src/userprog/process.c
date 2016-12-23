@@ -641,35 +641,6 @@ setup_stack (void **esp)
 	return true;
 }
 				
-/*    	kpage->vme=vme;
-    	add_page_to_lru_list(kpage);
-
-    	if(!install_page(upage,kpage->kaddr,true)){
-    		free_page_kaddr(kpage);
-    		free(vme);
-    		return false;
-			}
-			*esp=PHYS_BASE-12;
-
-			memset(kpage->vme,0,sizeof(struct vm_entry));
-			kpage->vme->type = VM_ANON;
-			kpage->vme->vaddr=upage;
-			kpage->vme->writable=true;
-			kpage->vme->is_loaded=true;
-
-			insert_vme(&thread_current()->vm,kpage->vme);
-		}
-		return true;
-		*/
-//      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-//      if (success)
-//        *esp = PHYS_BASE-12;
-//      else
-//        palloc_free_page (kpage);
-//    }
-//  return success;
-//}
-
 /* Adds a mapping from user virtual address UPAGE to kernel
    virtual address KPAGE to the page table.
    If WRITABLE is true, the user process may modify the page;
@@ -699,11 +670,11 @@ handle_mm_fault(struct vm_entry *vme){
 	ASSERT(kpage!=NULL);
 	ASSERT(pg_ofs(kpage->kaddr)==0);
 	ASSERT(vme!=NULL);
+
 	kpage->vme=vme;
 
 	switch(vme->type){
 		case VM_BIN:
-		case VM_FILE:
 			if(!load_file(kpage->kaddr,vme) ||
 					!install_page(vme->vaddr,kpage->kaddr,vme->writable)){
 				free_page_kaddr(kpage);
@@ -726,46 +697,10 @@ handle_mm_fault(struct vm_entry *vme){
 		default:
 			NOT_REACHED();
 	}
-/*	struct page *kpage;
-	kpage = alloc_page (PAL_USER);
-	ASSERT (kpage != NULL);
-	ASSERT (pg_ofs (kpage->kaddr) == 0);
-	ASSERT (vme != NULL);
-	kpage->vme = vme;
-
-	switch (vme->type)
-	{
-		case VM_BIN:
-		case VM_FILE:
-			if (!load_file (kpage->kaddr, vme) ||
-					!install_page (vme->vaddr, kpage->kaddr, vme->writable))
-			{
-				NOT_REACHED ();
-				free_page_kaddr (kpage);
-				return false;
-			}
-			vme->is_loaded = true;
-			add_page_to_lru_list (kpage);
-			return true;
-		case VM_ANON:
-			swap_in (vme->swap_slot, kpage->kaddr);
-			ASSERT (pg_ofs (kpage->kaddr) == 0);
-			if (!install_page (vme->vaddr, kpage->kaddr, vme->writable))
-			{
-				NOT_REACHED ();
-				free_page_kaddr (kpage);
-				return false; 
-			}
-			vme->is_loaded = true;
-			add_page_to_lru_list (kpage);
-			return true;
-		default:
-			NOT_REACHED ();
-	}*/
 }
 
 void
-expand_stack (void *addr)
+stack_grow (void *addr)
 {
 	struct page *kpage;
 	void *upage = pg_round_down (addr);
