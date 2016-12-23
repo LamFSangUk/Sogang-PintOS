@@ -449,7 +449,7 @@ static bool is_valid_userptr(const void* ptr,void *esp){
 		if(!(is_user_vaddr(ptr) && ptr>=(void*)0x08048000UL)){
 			return false;
 		}
-		if(!find_vme(ptr)){
+		if(!get_pge(ptr)){
 			if(!is_valid_stack((int32_t) ptr, (int32_t)esp))
 				return false;
 			stack_grow(ptr);

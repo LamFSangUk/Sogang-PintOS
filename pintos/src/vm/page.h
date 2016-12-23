@@ -20,7 +20,7 @@ enum vm_type
 struct page
 {
 	void *kaddr;
-	struct page_entry *vme;
+	struct page_entry *pge;
 	struct thread *thread;
 	struct list_elem lru;
 };
@@ -42,8 +42,8 @@ struct page_entry
 void spt_init (struct hash *);
 void spt_destroy (struct hash *);
 
-struct page_entry *find_vme (void *vaddr);
-bool insert_vme (struct hash *, struct page_entry *);
+struct page_entry *get_pge (void *vaddr);
+bool insert_pge (struct hash *, struct page_entry *);
 bool delete_vme (struct hash *, struct page_entry *);
 
 bool load_file (void *kaddr, struct page_entry *);

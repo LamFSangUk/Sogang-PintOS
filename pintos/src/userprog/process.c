@@ -560,19 +560,19 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 		size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-		struct page_entry *vme = (struct page_entry *)malloc(sizeof(struct page_entry));
-		if(vme==NULL) return false;
+		struct page_entry *pge = (struct page_entry *)malloc(sizeof(struct page_entry));
+		if(pge==NULL) return false;
 
-		memset(vme,0,sizeof(struct page_entry));
-		vme->type=VM_BIN;
-		vme->file=file;
-		vme->offset=ofs;
-		vme->read_bytes=page_read_bytes;
-		vme->zero_bytes=page_zero_bytes;
-		vme->writable=writable;
-		vme->vaddr=upage;
+		memset(pge,0,sizeof(struct page_entry));
+		pge->type=VM_BIN;
+		pge->file=file;
+		pge->offset=ofs;
+		pge->read_bytes=page_read_bytes;
+		pge->zero_bytes=page_zero_bytes;
+		pge->writable=writable;
+		pge->vaddr=upage;
 
-		insert_vme(&thread_current()->sup_page_tab,vme);
+		insert_pge(&thread_current()->sup_page_tab,pge);
 
 //		/* Get a page of memory. */
 //		uint8_t *knpage = palloc_get_page(PAL_USER);
@@ -613,31 +613,31 @@ setup_stack (void **esp)
 	struct page *kpage;
 	void *upage = ((uint8_t*)PHYS_BASE)-PGSIZE;
 
-	struct page_entry *vme=(struct page_entry *)malloc(sizeof(struct page_entry));
-	if(vme==NULL)
+	struct page_entry *pge=(struct page_entry *)malloc(sizeof(struct page_entry));
+	if(pge==NULL)
 		return false;
 
   kpage = alloc_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
 	{
-			kpage->vme=vme;
+			kpage->pge=pge;
 			add_page_to_lru_list(kpage);
 
 			if(!install_page(upage,kpage->kaddr,true)){
 				free_page_kaddr(kpage);
-				free(vme);
+				free(pge);
 				return false;
 			}
 			*esp=PHYS_BASE-12;
 
-			memset(kpage->vme,0,sizeof(struct page_entry));
-			kpage->vme->type=VM_ANON;
-			kpage->vme->vaddr=upage;
-			kpage->vme->writable=true;
-			kpage->vme->is_loaded=true;
+			memset(kpage->pge,0,sizeof(struct page_entry));
+			kpage->pge->type=VM_ANON;
+			kpage->pge->vaddr=upage;
+			kpage->pge->writable=true;
+			kpage->pge->is_loaded=true;
 		
 
-			insert_vme(&thread_current()->sup_page_tab,kpage->vme);
+			insert_pge(&thread_current()->sup_page_tab,kpage->pge);
 		}
 	return true;
 }
@@ -663,29 +663,29 @@ install_page (void *upage, void *kpage, bool writable)
 }
 
 bool
-handle_mm_fault(struct page_entry *vme){
+handle_mm_fault(struct page_entry *pge){
 //	uint8_t *kpage;
 	struct page *kpage;
 	kpage = alloc_page(PAL_USER);
 
 	ASSERT(kpage!=NULL);
 	ASSERT(pg_ofs(kpage->kaddr)==0);
-	ASSERT(vme!=NULL);
+	ASSERT(pge!=NULL);
 
-	kpage->vme=vme;
+	kpage->pge=pge;
 
-	switch(vme->type){
+	switch(pge->type){
 		case VM_BIN:
-			if(!load_file(kpage->kaddr,vme) ||
-					!install_page(vme->vaddr,kpage->kaddr,vme->writable)){
+			if(!load_file(kpage->kaddr,pge) ||
+					!install_page(pge->vaddr,kpage->kaddr,pge->writable)){
 				free_page_kaddr(kpage);
 				return false;
 			}
 			break;
 		case VM_ANON:
-			swap_in (vme->swap_slot, kpage->kaddr);
+			swap_in (pge->swap_slot, kpage->kaddr);
 			ASSERT(pg_ofs(kpage->kaddr)==0);
-			if (!install_page (vme->vaddr, kpage->kaddr, vme->writable)){
+			if (!install_page (pge->vaddr, kpage->kaddr, pge->writable)){
 				free_page_kaddr(kpage);
 				return false;
 			}
@@ -694,7 +694,7 @@ handle_mm_fault(struct page_entry *vme){
 			NOT_REACHED();
 	}
 
-	vme->is_loaded=true;
+	pge->is_loaded=true;
 	add_page_to_lru_list(kpage);
 	return true;
 }
@@ -705,30 +705,30 @@ stack_grow (void *addr)
 	struct page *kpage;
 	void *upage = pg_round_down (addr);
 
-	struct page_entry *vme = (struct page_entry *)malloc(sizeof(struct page_entry));
-	if (vme == NULL)
+	struct page_entry *pge = (struct page_entry *)malloc(sizeof(struct page_entry));
+	if (pge == NULL)
 		return;
 
 	kpage = alloc_page (PAL_USER | PAL_ZERO);
 	if (kpage != NULL)
 	{
-		kpage->vme = vme;
+		kpage->pge = pge;
 		add_page_to_lru_list (kpage);
 
 		if (!install_page (upage, kpage->kaddr, true))
 		{
 			free_page_kaddr (kpage);
-			free (vme);
+			free (pge);
 			return;
 		}
 
-		memset (kpage->vme, 0, sizeof (struct page_entry));
-		kpage->vme->type = VM_ANON;
-		kpage->vme->vaddr = upage;
-		kpage->vme->writable = true;
-		kpage->vme->is_loaded = true;
+		memset (kpage->pge, 0, sizeof (struct page_entry));
+		kpage->pge->type = VM_ANON;
+		kpage->pge->vaddr = upage;
+		kpage->pge->writable = true;
+		kpage->pge->is_loaded = true;
 
-		insert_vme (&thread_current ()->sup_page_tab, kpage->vme);
+		insert_pge (&thread_current ()->sup_page_tab, kpage->pge);
 	}
 
 }

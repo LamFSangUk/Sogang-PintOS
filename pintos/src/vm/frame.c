@@ -96,18 +96,18 @@ get_victim (void)
 	ASSERT (page);
 	ASSERT (page->thread);
 	ASSERT (page->thread->magic == 0xcd6abf4b);
-	ASSERT (page->vme);
+	ASSERT (page->pge);
 
-	while (pagedir_is_accessed (page->thread->pagedir, page->vme->vaddr))
+	while (pagedir_is_accessed (page->thread->pagedir, page->pge->vaddr))
 	{
-		pagedir_set_accessed (page->thread->pagedir, page->vme->vaddr, false);
+		pagedir_set_accessed (page->thread->pagedir, page->pge->vaddr, false);
 		e = get_next_lru_clock ();
 		ASSERT (e != NULL);
 		page = list_entry (e, struct page, lru);
 		ASSERT (page);
 		ASSERT (page->thread);
 		ASSERT (page->thread->magic == 0xcd6abf4b);
-		ASSERT (page->vme);
+		ASSERT (page->pge);
 	}
 
 	return page;

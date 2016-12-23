@@ -133,7 +133,7 @@ page_fault (struct intr_frame *f)
   bool user;         /* True: access by user, false: access by kernel. */
   void *fault_addr;  /* Fault address. */
 
-	struct page_entry *vme;
+	struct page_entry *pge;
 
   /* Obtain faulting address, the virtual address that was
      accessed to cause the fault.  It may point to code or to
@@ -157,9 +157,9 @@ page_fault (struct intr_frame *f)
   user = (f->error_code & PF_U) != 0;
 	
 	/* proj3 vm*/	
-	vme=find_vme(fault_addr);//Find the Fault Addr's page in sup_page_tab.
+	pge=get_pge(fault_addr);//Find the Fault Addr's page in sup_page_tab.
 
-	if(!vme){
+	if(!pge){
 		if(!is_valid_stack ((int32_t) fault_addr,f->esp))
 			syscall_exit(-1);
 
@@ -167,7 +167,7 @@ page_fault (struct intr_frame *f)
 		return;
 	}
 
-	if(!not_present || !handle_mm_fault(vme))
+	if(!not_present || !handle_mm_fault(pge))
 		syscall_exit(-1);
 
 

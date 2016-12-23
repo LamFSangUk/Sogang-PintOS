@@ -43,50 +43,56 @@ static void
 spt_destroy_func (struct hash_elem *e, void *aux UNUSED)
 {
 	ASSERT (e != NULL);
-	struct page_entry *vme = hash_entry (e, struct page_entry, elem);
-	free_page_vaddr (vme->vaddr);
-	swap_clear (vme->swap_slot);
-	free (vme);
+	struct page_entry *pge = hash_entry (e, struct page_entry, elem);
+	swap_clear (pge->swap_slot);
 
+	free_page_vaddr (pge->vaddr);
+	free (pge);
 }
 
 struct page_entry *
-find_vme (void *vaddr)
+get_pge (void *vaddr)
 {
 	struct hash *spt;
-	struct page_entry vme;
+	struct page_entry pge;
 	struct hash_elem *elem;
 
 	spt = &thread_current ()->sup_page_tab;
-	vme.vaddr = pg_round_down (vaddr);
-	ASSERT (pg_ofs (vme.vaddr) == 0);
-	elem = hash_find (spt, &vme.elem);
-	return elem ? hash_entry (elem, struct page_entry, elem) : NULL;
+
+	pge.vaddr = pg_round_down (vaddr);
+	ASSERT (pg_ofs (pge.vaddr) == 0);
+	elem = hash_find (spt, &pge.elem);
+	if(elem){
+		return hash_entry(elem, struct page_entry, elem);
+	}
+	else return NULL;
 }
 
-	bool
-insert_vme (struct hash *spt, struct page_entry *vme)
+bool
+insert_pge (struct hash *spt, struct page_entry *pge)
 {
 	ASSERT (spt != NULL);
-	ASSERT (vme != NULL);
-	ASSERT (pg_ofs (vme->vaddr) == 0);
-	return hash_insert (spt, &vme->elem) == NULL;
+	ASSERT (pge != NULL);
+	ASSERT (pg_ofs (pge->vaddr) == 0);
+	return hash_insert (spt, &pge->elem) == NULL;
 }
 
-	bool
+bool
 delete_vme (struct hash *spt, struct page_entry *vme)
 {
 	ASSERT (spt != NULL);
 	ASSERT (vme != NULL);
-	if(!hash_delete(spt,&vme->elem))
-		return false;
-	free_page_vaddr(vme->vaddr);
-	swap_clear(vme->swap_slot);	
-	free(vme);
-	return true;
+	if(hash_delete(spt,&vme->elem)){
+		swap_clear(vme->swap_slot);	
+		free_page_vaddr(vme->vaddr);
+		free(vme);
+		return true;
+	}
+	else return false;
 }
 
-bool load_file (void *kaddr, struct page_entry *vme)
+bool
+load_file (void *kaddr, struct page_entry *vme)
 {
 	ASSERT (kaddr != NULL);
 	ASSERT (vme != NULL);
@@ -100,40 +106,41 @@ bool load_file (void *kaddr, struct page_entry *vme)
 	return true;
 }
 
-static void collect (void)
+static void
+collect (void)
 {
 	lock_acquire (&lru_list_lock);
 	
-	struct page *victim = get_victim ();
+	struct page *vict_page = get_victim ();
 
-	ASSERT (victim != NULL);
-	ASSERT (victim->thread != NULL);
-	ASSERT (victim->thread->magic == 0xcd6abf4b);
-	ASSERT (victim->vme != NULL);
+	ASSERT (vict_page != NULL);
+	ASSERT (vict_page->thread != NULL);
+	ASSERT (vict_page->thread->magic == 0xcd6abf4b);
+	ASSERT (vict_page->pge != NULL);
 
-	bool dirty = pagedir_is_dirty (victim->thread->pagedir, victim->vme->vaddr);
+	bool dirty = pagedir_is_dirty (vict_page->thread->pagedir, vict_page->pge->vaddr);
 	
-	switch (victim->vme->type)
+	switch (vict_page->pge->type)
 	{
 		case VM_BIN:
 			if (dirty)
 			{
-				victim->vme->swap_slot = swap_out (victim->kaddr);
-				victim->vme->type = VM_ANON;
+				vict_page->pge->swap_slot = swap_out (vict_page->kaddr);
+				vict_page->pge->type = VM_ANON;
 			}
 			break;
 		case VM_ANON:
-			victim->vme->swap_slot = swap_out (victim->kaddr);
+			vict_page->pge->swap_slot = swap_out (vict_page->kaddr);
 			break;
 		default:
 			NOT_REACHED ();
 	}
-	victim->vme->is_loaded = false;
-	__free_page (victim);
+	vict_page->pge->is_loaded = false;
+	__free_page (vict_page);
 	lock_release (&lru_list_lock);
 }
 
-	struct page *
+struct page *
 alloc_page (enum palloc_flags flags)
 {
 	struct page *page;
@@ -159,7 +166,7 @@ alloc_page (enum palloc_flags flags)
 extern struct list lru_list;
 extern struct list_elem *lru_clock;
 
-	void
+void
 free_page_kaddr (void *kaddr)
 {
 	lock_acquire (&lru_list_lock);
@@ -179,7 +186,7 @@ free_page_vaddr (void *vaddr)
 	free_page_kaddr (pagedir_get_page (thread_current ()->pagedir, vaddr));
 }
 
-	void
+void
 __free_page (struct page *page)
 {
 	ASSERT (lock_held_by_current_thread (&lru_list_lock));
@@ -187,9 +194,9 @@ __free_page (struct page *page)
 	ASSERT (page != NULL);
 	ASSERT (page->thread != NULL);
 	ASSERT (page->thread->magic == 0xcd6abf4b);
-	ASSERT (page->vme != NULL);
+	ASSERT (page->pge != NULL);
 
-	pagedir_clear_page (page->thread->pagedir, page->vme->vaddr);
+	pagedir_clear_page (page->thread->pagedir, page->pge->vaddr);
 	del_page_from_lru_list (page);
 	palloc_free_page (page->kaddr);
 	free (page);
