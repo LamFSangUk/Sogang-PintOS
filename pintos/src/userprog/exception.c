@@ -133,6 +133,8 @@ page_fault (struct intr_frame *f)
   bool user;         /* True: access by user, false: access by kernel. */
   void *fault_addr;  /* Fault address. */
 
+	struct vm_entry *vme;
+
   /* Obtain faulting address, the virtual address that was
      accessed to cause the fault.  It may point to code or to
      data.  It is not necessarily the address of the instruction
@@ -154,11 +156,9 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 	
-	//syscall_exit(-1);
-	struct vm_entry *vme;
-	if(!not_present)//case: writing r/o page.
-		syscall_exit(-1);
+	/* proj3 vm*/	
 	vme=find_vme(fault_addr);//Find the Fault Addr's page in sup_page_tab.
+
 	if(!vme){
 		if(!is_valid_stack ((int32_t) fault_addr,f->esp))
 			syscall_exit(-1);
@@ -166,8 +166,10 @@ page_fault (struct intr_frame *f)
 		expand_stack(fault_addr);
 		return;
 	}
-	if(!handle_mm_fault(vme))
+
+	if(!not_present || !handle_mm_fault(vme))
 		syscall_exit(-1);
+
 
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
