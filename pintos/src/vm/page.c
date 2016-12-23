@@ -28,7 +28,7 @@ static unsigned
 spt_hash_func (const struct hash_elem *e, void *aux UNUSED)
 {
 	ASSERT (e != NULL);
-	return hash_int (hash_entry (e, struct vm_entry, elem)->vaddr);
+	return hash_int (hash_entry (e, struct page_entry, elem)->vaddr);
 }
 
 static bool
@@ -36,36 +36,36 @@ spt_less_func (const struct hash_elem *a,const struct hash_elem *b, void *aux UN
 {
 	ASSERT (a != NULL);
 	ASSERT (b != NULL);
-	return hash_entry (a, struct vm_entry, elem)->vaddr < hash_entry (b, struct vm_entry, elem)->vaddr;
+	return hash_entry (a, struct page_entry, elem)->vaddr < hash_entry (b, struct page_entry, elem)->vaddr;
 }
 
 static void
 spt_destroy_func (struct hash_elem *e, void *aux UNUSED)
 {
 	ASSERT (e != NULL);
-	struct vm_entry *vme = hash_entry (e, struct vm_entry, elem);
+	struct page_entry *vme = hash_entry (e, struct page_entry, elem);
 	free_page_vaddr (vme->vaddr);
 	swap_clear (vme->swap_slot);
 	free (vme);
 
 }
 
-struct vm_entry *
+struct page_entry *
 find_vme (void *vaddr)
 {
 	struct hash *spt;
-	struct vm_entry vme;
+	struct page_entry vme;
 	struct hash_elem *elem;
 
 	spt = &thread_current ()->sup_page_tab;
 	vme.vaddr = pg_round_down (vaddr);
 	ASSERT (pg_ofs (vme.vaddr) == 0);
 	elem = hash_find (spt, &vme.elem);
-	return elem ? hash_entry (elem, struct vm_entry, elem) : NULL;
+	return elem ? hash_entry (elem, struct page_entry, elem) : NULL;
 }
 
 	bool
-insert_vme (struct hash *spt, struct vm_entry *vme)
+insert_vme (struct hash *spt, struct page_entry *vme)
 {
 	ASSERT (spt != NULL);
 	ASSERT (vme != NULL);
@@ -74,7 +74,7 @@ insert_vme (struct hash *spt, struct vm_entry *vme)
 }
 
 	bool
-delete_vme (struct hash *spt, struct vm_entry *vme)
+delete_vme (struct hash *spt, struct page_entry *vme)
 {
 	ASSERT (spt != NULL);
 	ASSERT (vme != NULL);
@@ -86,7 +86,7 @@ delete_vme (struct hash *spt, struct vm_entry *vme)
 	return true;
 }
 
-bool load_file (void *kaddr, struct vm_entry *vme)
+bool load_file (void *kaddr, struct page_entry *vme)
 {
 	ASSERT (kaddr != NULL);
 	ASSERT (vme != NULL);

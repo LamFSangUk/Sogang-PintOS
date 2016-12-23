@@ -25,6 +25,7 @@
 #include "threads/malloc.h"
 #include "userprog/syscall.h"
 
+#include "vm/frame.h"
 #include "vm/page.h"
 #include "vm/swap.h"
 
@@ -559,10 +560,10 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 		size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-		struct vm_entry *vme = (struct vm_entry *)malloc(sizeof(struct vm_entry));
+		struct page_entry *vme = (struct page_entry *)malloc(sizeof(struct page_entry));
 		if(vme==NULL) return false;
 
-		memset(vme,0,sizeof(struct vm_entry));
+		memset(vme,0,sizeof(struct page_entry));
 		vme->type=VM_BIN;
 		vme->file=file;
 		vme->offset=ofs;
@@ -612,7 +613,7 @@ setup_stack (void **esp)
 	struct page *kpage;
 	void *upage = ((uint8_t*)PHYS_BASE)-PGSIZE;
 
-	struct vm_entry *vme=(struct vm_entry *)malloc(sizeof(struct vm_entry));
+	struct page_entry *vme=(struct page_entry *)malloc(sizeof(struct page_entry));
 	if(vme==NULL)
 		return false;
 
@@ -629,7 +630,7 @@ setup_stack (void **esp)
 			}
 			*esp=PHYS_BASE-12;
 
-			memset(kpage->vme,0,sizeof(struct vm_entry));
+			memset(kpage->vme,0,sizeof(struct page_entry));
 			kpage->vme->type=VM_ANON;
 			kpage->vme->vaddr=upage;
 			kpage->vme->writable=true;
@@ -662,7 +663,7 @@ install_page (void *upage, void *kpage, bool writable)
 }
 
 bool
-handle_mm_fault(struct vm_entry *vme){
+handle_mm_fault(struct page_entry *vme){
 //	uint8_t *kpage;
 	struct page *kpage;
 	kpage = alloc_page(PAL_USER);
@@ -680,10 +681,7 @@ handle_mm_fault(struct vm_entry *vme){
 				free_page_kaddr(kpage);
 				return false;
 			}
-			vme->is_loaded=true;
-			add_page_to_lru_list(kpage);
-			return true;
-
+			break;
 		case VM_ANON:
 			swap_in (vme->swap_slot, kpage->kaddr);
 			ASSERT(pg_ofs(kpage->kaddr)==0);
@@ -691,12 +689,14 @@ handle_mm_fault(struct vm_entry *vme){
 				free_page_kaddr(kpage);
 				return false;
 			}
-			vme->is_loaded=true;
-			add_page_to_lru_list(kpage);
-			return true;
+			break;
 		default:
 			NOT_REACHED();
 	}
+
+	vme->is_loaded=true;
+	add_page_to_lru_list(kpage);
+	return true;
 }
 
 void
@@ -705,7 +705,7 @@ stack_grow (void *addr)
 	struct page *kpage;
 	void *upage = pg_round_down (addr);
 
-	struct vm_entry *vme = (struct vm_entry *)malloc(sizeof(struct vm_entry));
+	struct page_entry *vme = (struct page_entry *)malloc(sizeof(struct page_entry));
 	if (vme == NULL)
 		return;
 
@@ -722,7 +722,7 @@ stack_grow (void *addr)
 			return;
 		}
 
-		memset (kpage->vme, 0, sizeof (struct vm_entry));
+		memset (kpage->vme, 0, sizeof (struct page_entry));
 		kpage->vme->type = VM_ANON;
 		kpage->vme->vaddr = upage;
 		kpage->vme->writable = true;
