@@ -12,6 +12,4 @@
 void exception_init (void);
 void exception_print_stats (void);
 
-bool verify_stack(int32_t addr,int32_t esp);
-
 #endif /* userprog/exception.h */

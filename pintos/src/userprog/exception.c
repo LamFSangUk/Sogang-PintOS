@@ -160,7 +160,7 @@ page_fault (struct intr_frame *f)
 		syscall_exit(-1);
 	vme=find_vme(fault_addr);//Find the Fault Addr's page in sup_page_tab.
 	if(!vme){
-		if(!verify_stack ((int32_t) fault_addr,f->esp))
+		if(!is_valid_stack ((int32_t) fault_addr,f->esp))
 			syscall_exit(-1);
 
 		expand_stack(fault_addr);
@@ -178,8 +178,4 @@ page_fault (struct intr_frame *f)
 //          write ? "writing" : "reading",
 //          user ? "user" : "kernel");
 //  kill (f);
-}
-
-bool verify_stack(int32_t addr, int32_t esp){
-	return is_user_vaddr(addr) && esp-addr<=32 && 0xC0000000UL-addr<=8*1024*1024;
 }

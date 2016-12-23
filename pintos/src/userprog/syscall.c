@@ -450,9 +450,10 @@ static bool is_valid_userptr(const void* ptr,void *esp){
 			return false;
 		}
 		if(!find_vme(ptr)){
-			if(!verify_stack((int32_t) ptr, (int32_t)esp))
+			if(!is_valid_stack((int32_t) ptr, (int32_t)esp))
 				return false;
 			expand_stack(ptr);
+			return true;
 		}
 	}
 }
@@ -552,4 +553,8 @@ get_file (int fd_num){
   	return tc->fd_tab[fd_num];
 
 	return NULL;
+}
+
+bool is_valid_stack(int32_t addr, int32_t esp){
+	 return is_user_vaddr(addr) && esp-addr<=32 && 0xC0000000UL-addr<=8*1024*1024;
 }
